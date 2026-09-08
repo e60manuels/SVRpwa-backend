@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SVR Campings</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FDCC01">
+    
+    <!-- iOS support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SVR Campings">
+    <link rel="apple-touch-icon" href="icons/icon-192.webp">
+    <link rel="icon" type="image/webp" href="icons/icon-192.webp">
+
+    <!-- LCP Image Preload -->
+    <link rel="preload" fetchpriority="high" as="image" href="https://tile.openstreetmap.org/8/131/83.png">
+
+    <!-- Assets -->
+    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
+
+    <link rel="stylesheet" href="css/MarkerCluster.css" />
+    <link rel="stylesheet" href="css/MarkerCluster.Default.css" />
+
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css">
+    </noscript>
+
+    <link rel="preload" href="https://unpkg.com/swiper/swiper-bundle.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css"></noscript>
+
+    <link rel="stylesheet" href="css/local_style.css" />
+    <link rel="stylesheet" href="css/custom_styles.css" />
+</head>
+<body>
+
+    <div id="loading-overlay"><i class="fas fa-spinner fa-spin fa-2x" style="color: var(--svr-blue);"></i></div>
+
+    <div id="portrait-lock">
+        <i class="fas fa-mobile-alt fa-3x fa-rotate-270" style="margin-bottom: 20px; color: var(--svr-blue);"></i>
+        <h2>Draai uw scherm</h2>
+        <p>Deze app werkt het beste in portretmodus.</p>
+    </div>
+
+    <div id="help-overlay" onclick="window.closeHelpOverlayAndShowPWA();">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 80%;">
+            <p class="bordered-text" style="font-weight: bold; font-size: 16px; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">Klik ergens om te sluiten</p>
+        </div>
+        <div class="help-item" style="top: 40px; left: 15px; flex-direction: column; align-items: flex-start;">
+            <div class="help-arrow arrow-up" style="margin-left: 10px;"></div>
+            <div class="help-text">Zoek op plaatsnaam naar campings</div>
+        </div>
+        <div class="help-item" style="top: 60px; right: 15px; flex-direction: column; align-items: flex-end;">
+            <div class="help-arrow arrow-up" style="margin-right: 10px; height: 25px; border-bottom: 25px solid white; border-top: 0; margin-top: -21px;"></div>
+            <div class="help-text">Info over de icoontjes</div>
+        </div>
+        <div class="help-item" style="bottom: 230px; right: 65px;">
+            <div class="help-text">Bekijk de SVR website</div>
+            <div class="help-arrow arrow-right"></div>
+        </div>
+        <div class="help-item" style="bottom: 180px; right: 65px;">
+            <div class="help-text" id="dynamic-help-text">Toon jouw huidige locatie</div>
+            <div class="help-arrow arrow-right"></div>
+        </div>
+        <div class="help-item" style="bottom: 130px; right: 65px;">
+            <div class="help-text">Filter op landen en faciliteiten</div>
+            <div class="help-arrow arrow-right"></div>
+        </div>
+        <div class="help-item" style="bottom: 80px; right: 65px;">
+            <div class="help-text">Wissel tussen Lijst en Kaart weergave</div>
+            <div class="help-arrow arrow-right"></div>
+        </div>
+        <div id="pwa-version-display" style="position: absolute; bottom: 5px; left: 35px; font-size: 10px; color: rgba(255,255,255,0.8); pointer-events: none;"></div>
+    </div>
+
+    <header class="svr-header">
+        <div class="svr-top-row">
+            <div class="header-logo">
+                <img src="https://www.svr.nl/files/small_png/svr_2018.png" alt="SVR Logo" width="100" height="63">
+            </div>
+            
+            <div class="search-container" style="position: relative;">
+                <i class="fas fa-search" id="searchIcon"></i>
+                <input type="text" id="searchInput" placeholder="Zoek een SVR camping" autocomplete="off">
+                <button id="infoBtn" class="map-stack-btn" onclick="window.showHelp()">
+                    <i class="fas fa-info"></i>
+                </button>
+                <ul id="suggestionsList" class="suggestions-list"></ul>
+            </div>
+        </div>
+        <div id="filters-nav-container" class="filters-nav-container">
+            <div id="active-filters-bar" class="active-filters-bar">
+                <button id="filter-arrow-left" class="filter-nav-arrow left"><i class="fas fa-chevron-left"></i></button>
+                <button id="filter-arrow-right" class="filter-nav-arrow right"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </header>
+
+    <div id="map-container">
+        <div id="map" style="width: 100%; height: 100%;"></div>
+    </div>
+    <div id="list-container"><div id="resultsList"></div></div>
+    <div id="detail-container" class="detail-overlay">
+        <div class="detail-sheet-content">
+            <div id="detail-splash" class="detail-splash">
+                <h2 class="befalow" id="detail-splash-text"></h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="map-actions-stack">
+        <div id="menu-btn-wrapper" style="position: relative;">
+            <button class="map-stack-btn" id="menuBtn" onclick="window.toggleMapMenu()">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <button class="map-stack-btn" id="locateBtn">
+            <i class="fas fa-location-crosshairs"></i>
+        </button>
+        <button class="map-stack-btn" id="scroll_top_btn">
+            <i class="fas fa-chevron-up"></i>
+        </button>
+        <button class="map-stack-btn" id="filterBtn" onclick="window.toggle_filters()">
+            <i class="fas fa-sliders"></i>
+        </button>
+        <button class="map-stack-btn" id="toggleView">
+            <i class="fas fa-list"></i>
+        </button>
+    </div>
+
+    <div id="install-banner" class="install-banner" style="display: none;">
+      <div class="install-banner-content">
+        <button id="close-banner" class="close-button">✕</button>
+        <div class="install-banner-icon">
+          <img src="icons/icon-192.webp" alt="App Icon">
+        </div>
+        <div class="install-banner-text">
+          <p>Installeer deze SVR app</p>
+        </div>
+        <button id="install-button" class="install-button" disabled>Installeren</button>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/pwa_install.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js', { updateViaCache: 'all' })
+                    .then(reg => {
+                        console.log('Service Worker geregistreerd', reg);
+                        reg.update();
+                    })
+                    .catch(err => console.log('Service Worker registratie mislukt', err));
+            });
+        }
+    </script>
+</body>
+</html>

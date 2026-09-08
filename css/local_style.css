@@ -1,0 +1,864 @@
+@font-face {
+            font-family: 'Befalow';
+            src: url('../fonts/befalow.ttf') format('truetype');
+            font-weight: normal; font-style: normal;
+        }
+
+        :root {
+            --svr-yellow: #FDCC01; --svr-blue: #008AD3; --svr-red: #c0392b; --svr-green: #92d050;
+            --status-bar-height: env(safe-area-inset-top, 0px);
+            --header-base-height: 60px;
+            --header-expanded-height: 96px;
+            --header-height: var(--header-base-height);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        body.has-filters {
+            --header-height: var(--header-expanded-height);
+        }
+
+        body { margin: 0; padding: 0; font-family: sans-serif; background-color: transparent; overflow: hidden; }
+
+        .svr-header {
+            position: fixed; top: 0; left: 0; width: 100%; height: var(--header-height);
+            background-color: var(--svr-yellow); z-index: 1000;
+            display: flex; flex-direction: column; padding-top: var(--status-bar-height); box-sizing: border-box;
+            transition: height 0.3s ease;
+            justify-content: center;
+            border-bottom: 3px solid rgb(1, 139, 211);
+        }
+
+        .svr-header.has-filters {
+            justify-content: flex-start;
+        }
+
+        .svr-top-row { width: 100%; height: 60px; display: flex; padding: 0 12px; gap: 10px; align-items: center; box-sizing: border-box; flex-shrink: 0; }
+        
+        /* Header Logo - hidden on mobile by default */
+        .header-logo { display: none; }
+        .header-logo img { max-width: 100px; height: auto; }
+
+        /* The scrollable chips bar container */
+        .filters-nav-container {
+            width: 100%;
+            height: 36px;
+            position: relative;
+            display: none; /* Hidden by default */
+            align-items: center;
+            overflow: hidden;
+        }
+
+        body.has-filters .filters-nav-container {
+            display: flex;
+        }
+
+        .active-filters-bar {
+            width: 100%;
+            height: 100%;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 0 12px; /* Fixed: removed bottom padding to allow true centering */
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            scrollbar-width: none; /* Firefox */
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+
+        .active-filters-bar::-webkit-scrollbar { display: none; }
+
+        /* Navigation Arrows */
+        .filter-nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);            width: 24px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            cursor: pointer;
+            color: #666;
+            font-size: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .filter-nav-arrow.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .filter-nav-arrow.left { left: 4px; }
+        .filter-nav-arrow.right { right: 4px; }
+
+        /* Individual Chip Styling */
+        .active-filter-chip { 
+            display: inline-flex; 
+            align-items: center; 
+            background: white; 
+            padding: 0 10px; 
+            border-radius: 15px; 
+            margin-right: 8px; 
+            font-size: 11px; 
+            font-weight: bold; 
+            color: var(--svr-blue); 
+            border: 1px solid rgba(0,0,0,0.1); 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: 26px; 
+            line-height: 26px; 
+            box-sizing: border-box; 
+            flex-shrink: 0;
+        }
+
+        .active-filter-chip i { 
+            margin-left: 8px; 
+            cursor: pointer; 
+            color: var(--svr-red); 
+            font-size: 14px; 
+        }
+        .search-container { flex: 1; display: flex; background: white; border-radius: 20px; padding: 0 8px; align-items: center; height: 40px; box-sizing: border-box; position: relative; z-index: 10; }
+        .search-container input { border: none; outline: none; width: 100%; padding: 0 8px; font-size: 15px; background: transparent; }
+        
+        #searchIcon { color: var(--svr-blue); padding: 5px; font-size: 16px; }
+        .search-container #infoBtn.map-stack-btn {
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            background: white;
+            color: var(--svr-blue);
+            cursor: pointer;
+            box-shadow: none;
+        }
+
+        /* --- HELP OVERLAY --- */
+        #help-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4); z-index: 5000;
+            display: none; color: white; pointer-events: auto;
+        }
+        .help-item { position: absolute; display: flex; align-items: center; }
+        .help-text { 
+            background: white; color: black; padding: 6px 12px; border-radius: 8px; 
+            font-size: 14px; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.3); 
+            white-space: nowrap; 
+        }
+        .help-arrow { width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+        .arrow-right { border-left: 8px solid white; margin-left: 6px; }
+        .arrow-up { border-bottom: 8px solid white; border-left: 6px solid transparent; border-right: 6px solid transparent; margin-bottom: 4px; }
+
+        /* Verberg scroll-help standaard, toon alleen in lijst-modus */
+        .help-scroll-item { display: none !important; }
+        #help-overlay.is-list-view .help-scroll-item { display: flex !important; }
+
+        #map-container, #list-container { position: absolute; top: var(--header-height); left: 0; right: 0; bottom: 0; }
+        #list-container { background: #eee; overflow-y: auto; display: none; padding: 12px; }
+
+        /* --- ACTION BUTTONS STACK --- */
+        .map-actions-stack {
+            position: fixed; 
+            bottom: calc(60px + var(--safe-area-inset-bottom)); 
+            right: 12px;
+            display: flex; flex-direction: column; gap: 6px; z-index: 2000;
+        }
+        .map-stack-btn {
+            width: 44px; height: 44px;
+            background-color: white; color: black !important;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer; border: 1px solid var(--svr-yellow); outline: none;
+            font-size: 18px; transition: transform 0.2s;
+        }
+        .map-stack-btn i { width: 20px; text-align: center; color: black !important; }
+        
+        /* Scroll-to-Top als onderdeel van de stack */
+        #scroll_top_btn { display: none; }
+        #scroll_top_btn.visible { display: flex; }
+
+        .camping-card { background: white; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column; }
+        .card-body { padding: 10px 12px; }
+        .card-body h3 { margin: 0 0 2px 0; font-family: 'Befalow', sans-serif; font-size: 25px; color: var(--svr-blue); font-weight: normal; }
+        .card-location { font-size: 13px; color: var(--svr-green); font-weight: 500; margin-bottom: 2px; }
+        .card-distance { font-size: 13px; color: var(--svr-red); font-weight: 500; }
+        
+        .camping-actions { display: flex; background: #ffffff; border-top: 1px solid #eee; }
+        .action-btn { flex: 1; text-align: center; padding: 8px 0; font-size: 10px; font-weight: 600; text-decoration: none !important; display: flex; align-items: center; justify-content: center; gap: 4px; border-right: 1px solid #eee; }
+        .action-btn:last-child { border-right: none; }
+        .btn-kaart { color: var(--svr-red) !important; }
+        .btn-route { color: var(--svr-green) !important; }
+        .btn-info { color: var(--svr-blue) !important; }
+
+        #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.6); display: none; justify-content: center; align-items: center; z-index: 2000; }
+
+        .suggestions-list {
+            position: absolute; top: 45px; left: 12px; right: 12px;
+            background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 200px; overflow-y: auto; z-index: 5000; display: none; 
+            margin: 0; padding: 0; list-style: none;
+        }
+        .suggestion-item { padding: 10px 15px; border-bottom: 1px solid #eee; font-size: 14px; cursor: pointer; color: #333; }
+
+        .search-error::placeholder { color: var(--svr-red) !important; }
+        .search-error { border: 1px solid var(--svr-red) !important; }
+
+        /* Leaflet Popup Styling - Yellow Border */
+        .leaflet-popup-content-wrapper {
+            border: 2px solid #FDCC01 !important;
+            border-radius: 4px !important;
+            background: #fff !important;
+            box-shadow: 0 3px 14px rgba(0,0,0,0.4) !important;
+        }
+        .leaflet-popup-content {
+            margin: 15px !important; /* Terug naar een gezonde standaard marge */
+            line-height: 1.2 !important;
+        }
+        .leaflet-popup-tip-container {
+            left: 50% !important;
+            width: 40px !important;
+            margin-left: 12px !important;
+        }
+        .leaflet-popup-tip {
+            background-color: #FDCC01 !important;
+            width: 14px !important;
+            height: 14px !important;
+            margin-left: -7px !important;
+            transform: rotate(45deg) !important;
+        }
+
+        /* --- SCROLL TO TOP BUTTON --- */
+        .svr-scroll-top {
+            width: 40px; height: 40px;
+            background-color: #FDCC01; color: #333; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 2000; cursor: pointer;
+            transition: opacity 0.3s, visibility 0.3s;
+            border: none; outline: none;
+        }
+        .svr-scroll-top.visible { opacity: 1; visibility: visible; }
+
+        /* --- USER LOCATION STYLES --- */
+        .user-location-dot {
+            width: 12px; height: 12px;
+            background-color: #008AD3;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        }
+        .locate-btn {
+            position: absolute; bottom: 20px; right: 12px;
+            width: 44px; height: 44px;
+            background-color: white; color: #008AD3;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1000;
+            pointer-events: auto;
+            cursor: pointer; border: none; outline: none;
+        }
+        /* Scroll-top moet iets hoger staan als de locate-btn er ook is */
+        .svr-scroll-top { bottom: 75px !important; }
+
+        /* --- DETAIL BOTTOM SHEET --- */
+
+        .detail-overlay {
+
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+
+            background: transparent; /* Changed to transparent, we use backdrop instead */
+
+            z-index: 9995; /* Above backdrop (9990) */
+
+            display: none; /* Hidden by default */
+
+            opacity: 0;
+
+            transition: opacity 0.3s ease;
+
+            overscroll-behavior: none; /* Prevent background scrolling when overlay is open */
+
+            pointer-events: none; /* Allow clicking through empty top area */
+
+        }
+
+        
+
+        /* Swiper Pagination Below Image */
+
+        .svr-detail-swiper {
+            padding-bottom: 30px !important;
+            height: 240px !important;
+            background: #f8f8f8;
+        }
+
+        .svr-detail-swiper .swiper-pagination {
+            bottom: 0 !important;
+        }
+
+        .svr-detail-swiper .swiper-slide img {
+            max-width: 100% !important;
+            max-height: 100% !important;
+            height: 100% !important;
+            object-fit: contain;
+        }
+
+        
+        .detail-overlay.open {
+            display: block;
+            opacity: 1;
+        }
+
+        .detail-sheet-content {
+            position: absolute; 
+            top: 88px; /* Start 88px from top for the see-through area */
+            bottom: 0; left: 0; right: 0;
+            background: white;
+            height: calc(100% - 88px);
+            max-height: calc(100% - 88px);
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            overflow: hidden; /* Prevent body scroll, use inner scroll */
+            transform: translateY(100%); /* Start off-screen */
+            transition: transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+            display: flex; /* For the close button header */
+            flex-direction: column;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            pointer-events: auto; /* Re-enable clicks for the actual content */
+        }
+        .detail-sheet-content > div:not(.detail-header) {
+            overflow-y: auto;
+            flex-grow: 1;
+            overscroll-behavior: none;
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
+        .detail-overlay.open .detail-sheet-content {
+            transform: translateY(0%); /* Slide into view */
+        }
+        .detail-sheet-content iframe {
+            flex-grow: 1; /* Make iframe take remaining height */
+            height: 100%; /* Ensure iframe fills its parent height */
+        }
+
+        /* Improve scroll performance */
+        #map-container, #list-container, .detail-sheet-content {
+            will-change: transform;
+            transform: translateZ(0); /* Enable hardware acceleration */
+        }
+
+        /* --- PORTRAIT LOCK OVERLAY --- */
+        #portrait-lock {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #FDCC01; z-index: 99999;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; color: #333;
+        }
+        
+        @media screen and (orientation: landscape) and (max-width: 900px) {
+            #portrait-lock { display: flex; }
+        }
+
+/* --- INSTALLATION BANNER --- */
+.install-banner {
+  position: fixed;
+  bottom: 0; /* Changed from top: 0 to bottom: 0 as per typical PWA banners */
+  left: 0;
+  right: 0;
+  background-color: var(--svr-blue); /* Changed to SVR blue */
+  color: white;
+  padding: 8px 12px; /* Adjusted padding for a more compact look */
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.2); /* Shadow on top */
+  z-index: 9999;
+  animation: slideUp 0.3s ease-out; /* Changed animation to slideUp */
+  box-sizing: border-box; /* Include padding in width calculation */
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.install-banner-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Adjusted gap for better fit */
+  padding-bottom: env(safe-area-inset-bottom, 0px); /* Account for safe area on mobile */
+}
+
+.install-banner-icon img {
+  width: 32px; /* Smaller icon */
+  height: 32px;
+  border-radius: 6px; /* Slightly smaller border-radius */
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.install-banner-text {
+  flex-grow: 1;
+  font-size: 0.9rem; /* Slightly smaller font size */
+  line-height: 1.2;
+  margin: 0; /* Remove default paragraph margins */
+  white-space: nowrap; /* Prevent text wrapping */
+  overflow: hidden; /* Hide overflow */
+  text-overflow: ellipsis; /* Add ellipsis for overflowed text */
+}
+
+.install-banner-text p {
+  margin: 0; /* Ensure no extra margin on paragraph inside text div */
+  color: white;
+}
+
+.install-button {
+  background-color: var(--svr-yellow); /* SVR yellow background */
+  color: #333; /* Dark text */
+  border: none;
+  padding: 8px 16px; /* Adjusted padding */
+  border-radius: 20px; /* Fully rounded like apply button */
+  font-weight: bold;
+  font-size: 0.9rem; /* Match filter button font size */
+  cursor: pointer;
+  transition: transform 0.2s;
+  height: 40px; /* Match filter button height */
+  flex-shrink: 0; /* Prevent shrinking */
+  min-width: fit-content; /* Ensure button text fits */
+}
+
+.install-button:hover {
+  transform: scale(1.05);
+}
+
+.install-button:disabled {
+  background: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.close-button {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.2rem; /* Slightly smaller cross */
+  cursor: pointer;
+  padding: 4px; /* Adjusted padding */
+  flex-shrink: 0; /* Prevent shrinking */
+  line-height: 1; /* Center X vertically */
+}
+
+/* iOS Instructions */
+.ios-install-instructions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--svr-blue); /* SVR blue background for consistency */
+  color: white; /* Default text color, overridden for header */
+  padding: 10px 0; /* Adjusted padding for header row */
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+  z-index: 9998;
+  text-align: center;
+  box-sizing: border-box;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); /* Account for safe area */
+}
+
+.ios-install-header-row {
+  display: flex;
+  justify-content: space-between; /* Puts SVR icon/text left, close button right */
+  align-items: center; /* Vertically aligns items in the row */
+  padding: 0 15px; /* Padding for the row */
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.ios-install-left {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Space between icon and text */
+  flex-grow: 1; /* Allow left side to take available space */
+  overflow: hidden; /* Prevent text overflow issues */
+}
+
+.ios-install-icon { /* Keep existing icon styling */
+  width: 48px;
+  height: 48px;
+  margin: 0; /* Reset margin from previous rule if any */
+  flex-shrink: 0; /* Prevent icon from shrinking */
+}
+
+.ios-install-text {
+  flex-grow: 1; /* Allow text to take available space */
+  white-space: nowrap; /* Prevent text wrapping in header */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ios-install-text p {
+  margin: 0; /* Remove default margin from paragraph */
+  color: var(--svr-yellow); /* Apply yellow color */
+  font-weight: bold;
+}
+
+.ios-install-right {
+  flex-shrink: 0; /* Prevent button from shrinking */
+}
+
+.ios-close-button { /* Styling for close button */
+  background-color: var(--svr-yellow); /* SVR yellow background */
+  color: #333; /* Dark text */
+  border: none;
+  padding: 8px 16px; /* Adjusted padding */
+  border-radius: 20px; /* Fully rounded */
+  font-weight: bold;
+  font-size: 0.9rem; /* Match install button font size */
+  cursor: pointer;
+  transition: transform 0.2s;
+  height: 40px;
+  flex-shrink: 0;
+  min-width: fit-content;
+}
+
+/* The rest of the iOS instructions CSS */
+.ios-install-detailed-instructions {
+    padding: 0 15px; /* Adjusted padding for consistency */
+    margin-bottom: 10px; /* Reduced margin */
+    text-align: left;
+    color: white; /* Ensure list items are white */
+    font-size: 0.95rem; /* Slightly smaller font size */
+}
+.ios-install-instructions ol {
+    padding-left: 20px;
+    margin-bottom: 10px; /* Reduced margin */
+    text-align: left;
+    color: white; /* Ensure list items are white */
+    font-size: 0.95rem; /* Slightly smaller font size */
+}
+.ios-install-instructions li {
+    margin-bottom: 5px;
+}
+
+/* --- TYPEWRITER EFFECT --- */
+.typewriter {
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 3px solid var(--svr-blue);
+    animation: typing 2s steps(20, end), blink-caret .75s step-end infinite;
+    max-width: fit-content;
+}
+
+@keyframes typing {
+    from { width: 0 }
+    to { width: 100% }
+}
+
+@keyframes blink-caret {
+    from, to { border-color: transparent }
+    50% { border-color: var(--svr-blue); }
+}
+
+/* ========================================
+   DESKTOP SPLIT-SCREEN LAYOUT (v0.2.38)
+   Kaart links — Lijst/Detail/Filter rechts
+   ======================================== */
+
+@media (min-width: 768px) {
+    /* Kleinere UI-elementen */
+    .search-container { height: 36px; width: 350px; flex: none; padding: 0 8px; margin-right: 106px; }
+    .search-container input { font-size: 14px; }
+    .map-stack-btn { width: 40px; height: 40px; }
+    .map-stack-btn i { font-size: 16px; }
+    .card-body h3 { font-size: 22px; }
+    .card-body .card-location, .card-body .card-distance { font-size: 14px; }
+    .active-filter-chip { font-size: 10px; height: 24px; margin-right: 0; margin-left: 8px; }
+    .help-text { font-size: 12px; }
+
+    /* Header layout: logo left, search centered over 40% panel */
+    .svr-top-row {
+        justify-content: flex-start;
+        padding-right: 4px;
+        position: relative;
+    }
+
+    /* Show logo on desktop */
+    .header-logo {
+        display: block;
+        flex-shrink: 0;
+        margin-top: 16px;
+    }
+    .header-logo img {
+        max-width: 100px;
+        height: auto;
+        transform: scale(1.2);
+        transform-origin: left center;
+    }
+
+    /* Search bar centered over the 40% right panel */
+    .svr-top-row .search-container {
+        position: absolute !important;
+        left: 80% !important;
+        transform: translateX(-175px) !important;
+        z-index: 2010 !important;
+    }
+
+    /* Navigatiepijltjes aanpassen voor desktop */
+    .filter-nav-arrow.left { left: auto; right: 4px; }
+    .filter-nav-arrow.right { left: 4px; right: auto; }
+
+    /* Actieve filters bar aanpassen voor desktop */
+    .active-filters-bar {
+        justify-content: flex-end;
+        padding-right: 0 !important;
+        padding-left: 40px;
+    }
+
+    /* Spacing between chips */
+    .active-filters-bar .active-filter-chip {
+        margin-right: 8px;
+        margin-left: 0;
+    }
+
+    /* Smaller zoom control buttons (20x20px) */
+    .leaflet-control-zoom { 
+        border: none !important; 
+    }
+    .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 14px !important;
+        line-height: 28px !important;
+    }
+
+    /* Suggesties onder het zoekveld, binnen de search-container */
+    .suggestions-list {
+        left: 0 !important;
+        right: 0 !important;
+        top: 100% !important;
+        margin-top: 4px;
+        max-width: none;
+        width: auto;
+        z-index: 1001 !important;
+    }
+
+    /* Header moet hoger zijn dan list-container voor suggesties */
+    .svr-header {
+        z-index: 1001 !important;
+    }
+
+    /* === HELP OVERLAY: desktop herpositionering === */
+    /* Verberg toggle-help (desktop: toggle is scroll-to-top) */
+    #help-overlay .help-item:nth-child(7) {
+        display: none !important;
+    }
+
+    /* Zoekbalk help: naar boven verplaatst */
+    #help-overlay .help-item:nth-child(2) {
+        top: calc(var(--header-height) + 6px) !important;
+        left: 80% !important;
+        transform: translateX(-175px) !important;
+        right: auto !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+    #help-overlay .help-item:nth-child(2) .help-arrow {
+        margin-left: 10px !important;
+        margin-right: 0 !important;
+    }
+
+    /* Info help: uitgelijnd met infoBtn in search-container */
+    #help-overlay .help-item:nth-child(3) {
+        top: calc(var(--header-height) + 10px) !important;
+        right: calc(20% - 160px) !important;
+    }
+    #help-overlay .help-item:nth-child(3) .help-arrow {
+        height: 35px !important;
+        border-bottom-width: 35px !important;
+        border-top: 0 !important;
+        margin-top: -26px !important;
+    }
+
+    /* Actieknoppen help: stack rechtsonder (right: 12px) */
+    /* Filter (onderste positie) */
+    #help-overlay .help-item:nth-child(6) {
+        bottom: 20px !important;
+        right: 65px !important;
+    }
+
+    /* Locate (boven filter) */
+    #help-overlay .help-item:nth-child(5) {
+        bottom: 76px !important;
+        right: 65px !important;
+    }
+
+    /* SVR Website (boven locate) */
+    #help-overlay .help-item:nth-child(4) {
+        bottom: 132px !important;
+        right: 65px !important;
+    }
+
+    /* === KAART: altijd links 60% === */
+    #map-container {
+        position: absolute;
+        top: var(--header-height) !important;
+        left: 0;
+        width: 60%;
+        height: calc(100vh - var(--header-height)) !important;
+        right: auto !important;
+        transform: none !important;
+        z-index: 10;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Zorg dat de kaart zelf de container vult */
+    #map {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    /* === LIJST: altijd rechts 40%, standaard zichtbaar === */
+    #list-container {
+        position: absolute;
+        top: var(--header-height) !important;
+        right: 0;
+        left: auto !important;
+        width: 40%;
+        height: calc(100vh - var(--header-height)) !important;
+        background: #f5f5f5;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        transform: none !important;
+        max-width: none !important;
+        display: block !important;
+        z-index: 1000;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* === RECHTER PANEEL (Detail of Filter) ===
+       Beide openen rechts, over de lijst heen.
+       Standaard verborgen; wordt zichtbaar via JS (display:block). */
+    #detail-container,
+    #svr-filter-overlay {
+        position: absolute !important;
+        top: var(--header-height) !important;
+        right: 0 !important;
+        left: auto !important;
+        width: 40% !important;
+        height: calc(100vh - var(--header-height)) !important;
+        transform: none !important;
+        border-radius: 0 !important;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1) !important;
+        z-index: 1500 !important;
+        display: none;
+        overflow: hidden;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Filter content vult het paneel volledig en is scrollbaar */
+    #svr-filter-overlay #svr-filter-overlay-content {
+        height: calc(100% - 60px) !important; /* Ruimte voor header/footer */
+        overflow-y: auto !important;
+        padding: 15px;
+        background: #fff;
+    }
+
+    /* Scrollbar styling voor een betere UX op desktop */
+    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar {
+        width: 8px;
+    }
+    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+    }
+    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar-thumb:hover {
+        background: #aaa;
+    }
+
+    /* Detail sheet vult het paneel volledig */
+    #detail-container .detail-sheet-content {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 100% !important;
+        max-height: 100% !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        transform: none !important; /* geen slide-up animatie op desktop */
+        transition: none !important;
+    }
+
+    /* Splash verbergen op desktop */
+    #detail-container .detail-splash {
+        display: none !important;
+    }
+
+    /* Filter content vult het paneel volledig */
+    #svr-filter-overlay .svr-overlay-header,
+    #svr-filter-overlay #svr-filter-overlay-content,
+    #svr-filter-overlay .svr-overlay-footer {
+        /* Bestaande mobile stijlen zijn OK, paneel erft de juiste afmetingen */
+    }
+
+    /* Backdrop nooit tonen op desktop */
+    #svr-filter-backdrop {
+        display: none !important;
+    }
+
+    /* === ACTIEKNOPPEN: rechtsonder in de rechterhelft === */
+    .map-actions-stack {
+        position: fixed;
+        right: 12px !important;
+        bottom: calc(20px + var(--safe-area-inset-bottom));
+        z-index: 2000;
+        pointer-events: none; /* Allow clicks to pass through container */
+    }
+    .map-actions-stack .map-stack-btn {
+        pointer-events: auto; /* But buttons themselves are clickable */
+    }
+
+    /* Knoppen verbergen als detail of filter open is */
+    body.panel-open .map-actions-stack {
+        display: none !important;
+    }
+
+    /* Toggle-knop op desktop: verbergen en als scroll-to-top gebruiken */
+    @media (min-width: 768px) {
+        #toggleView {
+            display: none;
+        }
+        #toggleView.visible {
+            display: flex;
+        }
+    }
+
+    /* Camping-cards: desktop optimalisatie */
+    .camping-card { max-width: none; margin: 0 0 12px 0; }
+}
+@media (min-width: 1024px) {
+    .search-container { height: 32px; }
+    .search-container input { font-size: 13px; }
+    #searchIcon { font-size: 14px; }
+    .map-stack-btn { width: 36px; height: 36px; }
+    .map-stack-btn i { font-size: 14px; }
+    .active-filter-chip { font-size: 9px; height: 22px; padding: 0 8px; }
+    .active-filter-chip i { font-size: 12px; }
+    .card-body h3 { font-size: 20px; }
+}

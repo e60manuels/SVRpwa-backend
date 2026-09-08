@@ -1,0 +1,302 @@
+/* --- Detail Page Styling (Injected SVR Content) --- */
+#detail-container {
+    background-color: transparent; /* Changed to transparent for see-through effect */
+    color: #212529; /* Standard text color */
+    font-family: Arial, Helvetica, sans-serif; /* Default font */
+}
+
+#detail-container .container-fluid {
+    width: 100%;
+    padding-right: var(--bs-gutter-x, 0.75rem);
+    padding-left: var(--bs-gutter-x, 0.75rem);
+    margin-right: auto;
+    margin-left: auto;
+}
+
+#detail-container .row {
+    --bs-gutter-x: 1.5rem;
+    --bs-gutter-y: 0;
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: calc(var(--bs-gutter-y) * -1);
+    margin-right: calc(var(--bs-gutter-x) * -0.5);
+    margin-left: calc(var(--bs-gutter-x) * -0.5);
+}
+#detail-container .row > * {
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 100%;
+    padding-right: calc(var(--bs-gutter-x) * 0.5);
+    padding-left: calc(var(--bs-gutter-x) * 0.5);
+    margin-top: var(--bs-gutter-y);
+    box-sizing: border-box !important; /* Crucial for preventing overflow */
+}
+
+/* Basic col-sm styling for mobile-first */
+#detail-container .col-sm-8 { flex: 0 0 auto; width: 100%; }
+#detail-container .col-sm-4 { flex: 0 0 auto; width: 100%; }
+
+/* Responsive columns for larger screens */
+@media (min-width: 576px) {
+    #detail-container .col-sm-8 { width: 66.66666667%; }
+    #detail-container .col-sm-4 { width: 33.33333333%; }
+}
+
+#detail-container .p-0 { padding: 0 !important; }
+#detail-container .p-2 { padding: 0.5rem !important; }
+#detail-container .p-3 { padding: 1rem !important; }
+#detail-container .p-4 { 
+    padding: 1.5rem 0.75rem !important; /* Keep vertical padding, reduce horizontal */
+}
+#detail-container .pt-0 { padding-top: 0 !important; }
+#detail-container .pt-2 { padding-top: 0.5rem !important; }
+#detail-container .pt-4 { padding-top: 1.5rem !important; }
+#detail-container .pt-5 { padding-top: 3rem !important; }
+#detail-container .mt-X { margin-top: auto !important; } /* Generic for dynamic mt-* */
+#detail-container .mb-X { margin-bottom: auto !important; } /* Generic for dynamic mb-* */
+#detail-container .mt-3 { margin-top: 1rem !important; }
+#detail-container .mt-4 { margin-top: 1.5rem !important; }
+#detail-container .mt-5 { margin-top: 3rem !important; }
+
+#detail-container .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    word-wrap: break-word;
+    background-color: #fff;
+    background-clip: border-box;
+    border: 1px solid rgba(0,0,0,.125);
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+}
+#detail-container .card.p-2 { padding: 0.5rem !important; }
+#detail-container .card.p-3 { padding: 1rem !important; }
+
+#detail-container h1, #detail-container h2, #detail-container h3, #detail-container h4, #detail-container h5, #detail-container h6 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    line-height: 1.2;
+}
+#detail-container h1 { font-size: 2.5rem; }
+#detail-container h2 { font-size: 2rem; }
+#detail-container h3 { font-size: 1.75rem; }
+#detail-container h4 { font-size: 1.5rem; }
+#detail-container h5 { font-size: 1.25rem; }
+#detail-container h6 { font-size: 1rem; }
+
+#detail-container .text-center { text-align: center !important; }
+#detail-container .mx-auto { margin-right: auto !important; margin-left: auto !important; }
+#detail-container .d-inline-block { display: inline-block !important; }
+#detail-container .float-left { float: left !important; }
+#detail-container .float-right { float: right !important; }
+#detail-container .d-none { display: none !important; }
+#detail-container .d-lg-inline-block { display: none !important; }
+@media (min-width: 992px) {
+    #detail-container .d-lg-inline-block { display: inline-block !important; }
+}
+
+#detail-container .btn {
+    display: inline-block;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #212529;
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    background-color: transparent;
+    border: 1px solid transparent;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    border-radius: 0.25rem;
+    transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+}
+#detail-container .btn-light { color: #000; background-color: #f8f9fa; border-color: #f8f9fa; }
+#detail-container .btn-light:hover { background-color: #e2e6ea; border-color: #dae0e5; }
+#detail-container .btn-svr-blue { color: #fff; background-color: #008AD3; border-color: #008AD3; }
+#detail-container .btn-svr-blue:hover { background-color: #006ebc; border-color: #006ebc; }
+
+
+
+
+/* Specific styling for the large Euro icons (SVG) */
+#detail-container svg[fill="currentColor"] {
+    width: 24px; /* Default size as seen in original HTML inline style */
+    height: 24px;
+    display: inline;
+    fill: var(--svr-yellow); /* Using PWA's SVR yellow */
+    vertical-align: middle; /* Align with text */
+}
+
+/* Specific styling for the SVR Logo */
+#detail-container img[alt="SVR"] {
+    height: 20px !important;
+    width: auto !important;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+/* Befalow font for injected content */
+#detail-container .befalow {
+    font-family: 'Befalow', sans-serif;
+}
+
+/* Basic Form control styling */
+#detail-container .form-control {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #212529;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border-radius: 0.25rem;
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+    box-sizing: border-box !important;
+}
+#detail-container .form-select {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+    -moz-padding-start: calc(0.75rem - 3px);
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #212529;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    box-sizing: border-box !important;
+}
+#detail-container hr {
+    margin: 1rem 0;
+    color: inherit;
+    background-color: currentColor;
+    border: 0;
+    opacity: 0.25;
+    height: 1px;
+}
+
+/* Hide SVR back button and improve layout */
+#detail-container a.btn[href="/objects"], .btn-light:has(.fa-arrow-left) {
+    display: none !important;
+}
+
+/* Ensure no horizontal scrollbar */
+#detail-container html, #detail-container body {
+    overflow-x: hidden !important;
+}
+
+/* Adjust header width to match content containers */
+#detail-container .detail-header {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 10px 15px;
+}
+
+/* Styling for the favorite button and surrounding elements */
+#detail-container h1.float-right { /* Target the h1 containing the favorite button */
+    float: none !important; /* Remove float */
+    display: block !important; /* Make it a block element to take full width */
+    text-align: right; /* Keep the button aligned right within its block */
+    margin-top: 10px; /* Add some space above the button */
+    margin-bottom: 10px; /* Add some space below the button */
+    width: 100% !important; /* Ensure it respects parent width */
+    box-sizing: border-box !important;
+}
+
+#detail-container h1.float-right button {
+    display: inline-block !important; /* Ensure the button itself remains inline-block */
+}
+
+#detail-container hr { /* Ensure all HRs clear floats globally within detail-container */
+    clear: both !important;
+}
+
+/* Gele Veeg (Yellow Sweep) styling */
+#detail-container .veeg-campings {
+    display: block !important; /* Force full width and new line */
+    width: 100% !important; /* Ensure it takes full available width */
+    max-width: 100% !important;
+    background: url("https://svr.nl/static/images/veeg_geel.png") center center / 100% 100% no-repeat !important;
+    padding: 10px 15px !important; /* Adjust horizontal padding to prevent overflow */
+    margin-bottom: 10px !important;
+    float: none !important; /* Remove float to allow center/natural flow */
+    box-sizing: border-box !important; /* Include padding in the 100% width */
+}
+
+#detail-container .veeg-campings h1 {
+    font-size: 24px !important;
+    margin: 0 !important;
+    font-family: 'Befalow', sans-serif !important;
+    color: #333 !important;
+    word-wrap: break-word; /* Ensure long names break to next line */
+}
+
+/* Improve spacing and layout for content after "Gele Veeg" */
+#detail-container .veeg-campings + div,
+#detail-container .veeg-campings ~ div {
+    margin-top: 15px;
+}
+
+/* Better container styling */
+#detail-container .container-fluid {
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+/* Splash screen for detail page */
+.detail-splash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--svr-yellow); /* SVR Yellow */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    z-index: 1000; /* Ensure it's above loaded content temporarily */
+    opacity: 1;
+    transition: opacity 0.5s ease-out; /* For fade out */
+    color: black;
+}
+
+.detail-splash.hide {
+    opacity: 0;
+    pointer-events: none; /* Make it unclickable when hidden */
+}
+
+.detail-splash h2 {
+    font-size: 2.5rem; /* Adjust as needed */
+    margin: 0;
+    font-weight: normal;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+
