@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.1"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.2"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -437,7 +437,7 @@ window._detailCache = {};
         <div class="svr-overlay-header" id="filter-drag-header">
             <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 10px; pointer-events: none;"><div style="width: 40px; height: 5px; background: #BBB; border-radius: 3px;"></div></div>
             <h3 class="svr-overlay-title">Filters</h3>
-            <div class="svr-overlay-close" onclick="window.hideFilterOverlay()"><i class="fas fa-times"></i></div>
+            <div class="svr-overlay-close" onclick="window.closeFilterOverlay()"><i class="fas fa-times"></i></div>
         </div>
         <div id="svr-filter-overlay-content">
             <div id="active-filters-holder"><div id="active-tags-container"></div></div>
