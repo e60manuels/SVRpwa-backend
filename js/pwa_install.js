@@ -169,7 +169,7 @@ function showIOSInstructions() {
                     <button id="close-ios-instructions" class="ios-close-button">✕</button>
                 </div>
             </div>
-            <p class="ios-install-main-text">Installeer de SVR app als volgt:</p>
+            <p class="ios-install-main-text">Installeer de SVRpwaB app als volgt:</p>
             <div class="ios-install-detailed-instructions">
                 <ol>
                     <li>Tik op de drie-puntjes ... onderin de browser en tik op het deel-icoon
