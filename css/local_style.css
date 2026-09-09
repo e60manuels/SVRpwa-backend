@@ -187,6 +187,17 @@
         #scroll_top_btn { display: none; }
         #scroll_top_btn.visible { display: flex; }
 
+        /* Subtiel watermerk onder de knoppen-stack */
+        .stack-watermark {
+            font-size: 10px;
+            color: rgba(0,0,0,0.35);
+            text-align: center;
+            padding-top: 3px;
+            pointer-events: none;
+            user-select: none;
+            letter-spacing: 0.5px;
+        }
+
         .camping-card { background: white; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column; }
         .card-body { padding: 10px 12px; }
         .card-body h3 { margin: 0 0 2px 0; font-family: 'Befalow', sans-serif; font-size: 25px; color: var(--svr-blue); font-weight: normal; }
