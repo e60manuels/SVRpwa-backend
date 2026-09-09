@@ -99,8 +99,8 @@ SVRpwaB/
 | Aspect           | Waarde                              |
 | ---------------- | ----------------------------------- |
 | App-versie       | `window.SVR_PWA_VERSION` (`v1.6.2`) |
-| SW-cache         | `svr-pwa-a-v1.6.2`                  |
-| Kaart-tile-cache | `svr-pwa-a-tiles`                   |
+| SW-cache         | `svr-pwa-b-v1.6.2`                  |
+| Kaart-tile-cache | `svr-pwa-b-tiles`                   |
 
 **Strategie:**
 - **App-shell** → network-first met cache-fallback
@@ -134,5 +134,4 @@ omgehoog, zodat clients de nieuwe code binnenkrijgen:
 3. **CORS:** de app draait op een andere origin dan de backend
    (`svr-backend.e60-manuels.workers.dev`). Mocht de detailpagina niet laden na
    een deploy, controleer dan de CORS-instellingen van de backend.
-4. **Cache-prefix `svr-pwa-a`:** cosmetisch; bij een volgende versie-bump kan
-   deze naar `svr-pwa-b` worden hernoemd.
+4. **Cache-prefix:** is hernoemd van `svr-pwa-a` naar `svr-pwa-b` (uitgevoerd).
