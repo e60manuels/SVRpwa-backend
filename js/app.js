@@ -1,5 +1,9 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
-window.SVR_PWA_VERSION = "0.2.58"; // Increment this number with each commit
+// VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
+window.SVR_PWA_VERSION = "1.6.0"; // Increment this number with each commit
+
+// In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
+window._detailCache = {};
 
 // [SECTION: INITIALIZATION]
 (function () {
@@ -1699,9 +1703,15 @@ async function renderDetail(objectId) {
         const apiBase = window.API_BASE || 'https://svr-backend.e60-manuels.workers.dev';
         const detailUrl = `${apiBase}/api/objects/${objectId}`;
         logDebug(`Detail laden via API: ${detailUrl}`);
-        const res = await fetch(detailUrl);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
+        let data = window._detailCache[objectId];
+        if (!data) {
+            const res = await fetch(detailUrl);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            data = await res.json();
+            window._detailCache[objectId] = data;
+        } else {
+            logDebug("Detail uit cache geladen.");
+        }
         const obj = data.object || {};
         const p = obj.properties || {};
         const coords = (obj.geometry && obj.geometry.coordinates) || [];
@@ -1805,119 +1815,7 @@ async function renderDetail(objectId) {
             return escapeHtml(formatPrice(v));
         };
 
-        // Dezelfde container-CSS als de originele renderDetail (exact overgenomen)
-        const containerStyle = `
-                #detail-container .container, #detail-container .container-fluid {
-                    width: 100% !important; max-width: 100vw !important;
-                    padding: 0 !important; margin: 0 !important;
-                    box-sizing: border-box !important;
-                }
-                #detail-container .row {
-                    width: 100% !important; margin: 0 !important; padding: 0 !important;
-                    display: flex !important; flex-direction: column !important;
-                    box-sizing: border-box !important;
-                }
-                #detail-container .col-md-8, #detail-container .col-md-4,
-                #detail-container .col-sm-8, #detail-container .col-sm-4,
-                #detail-container .col-sm-6, #detail-container .col-sm-12,
-                #detail-container .col-6, #detail-container .col-12 {
-                    width: 100% !important; max-width: 100% !important;
-                    padding: 10px 15px !important; margin: 0 !important;
-                    box-sizing: border-box !important;
-                    float: none !important;
-                    display: block !important;
-                }
-                #detail-container img, #detail-container iframe {
-                    max-width: 100% !important;
-                    height: auto !important;
-                    box-sizing: border-box !important;
-                }
-                #detail-container iframe { aspect-ratio: 16 / 9; }
-                #detail-container .object_pricing {
-                    font-size: 16px !important;
-                    width: 100% !important;
-                    overflow-x: auto !important;
-                }
-                #detail-container .object_pricing table {
-                    width: 100% !important;
-                    table-layout: auto !important;
-                    border-collapse: collapse !important;
-                }
-                #detail-container .object_pricing td {
-                    width: auto !important;
-                    padding: 8px 5px !important;
-                    border-bottom: 1px solid #eee !important;
-                }
-                #detail-container .object_pricing td:not(:first-child) {
-                    width: 65px !important;
-                    text-align: center !important;
-                }
-                #detail-container .restorelines {
-                    line-height: 1.6 !important;
-                    font-size: 16px !important;
-                    padding-left: 0 !important;
-                    padding-top: 2px !important;
-                    padding-bottom: 2px !important;
-                    display: block !important;
-                }
-                #detail-container .col-sm-12:has(.restorelines),
-                #detail-container .col-sm-6:has(.restorelines),
-                #detail-container .col-12:has(.restorelines),
-                #detail-container .col-6:has(.restorelines) {
-                    padding-left: 0 !important;
-                }
-                #detail-container .p-2[style*="background-color:#FDCC01"] {
-                    padding-left: 0 !important;
-                    margin-left: -15px !important;
-                    width: calc(100% + 30px) !important;
-                    box-sizing: border-box !important;
-                }
-                #detail-container .p-2[style*="background-color:#FDCC01"] h5 {
-                    margin: 0 !important;
-                    padding-left: 15px !important;
-                    font-family: 'Befalow', sans-serif !important;
-                }
-                #detail-container .footer {
-                    background-color: #008AD3 !important;
-                    color: black !important;
-                    padding: 3rem 1.5rem !important;
-                    margin-top: 2rem !important;
-                }
-                #detail-container .footer a { color: black !important; text-decoration: underline; }
-                #detail-container .footer h3 { color: black !important; font-family: 'Befalow', sans-serif; }
-                #detail-container .pt-5 { padding-top: 1.5rem !important; }
-                #detail-container .swiper-button-prev, #detail-container .swiper-button-next {
-                    color: white; background: rgba(0,0,0,0.3);
-                    width: 30px; height: 30px; border-radius: 50%;
-                    font-size: 15px; font-weight: bold;
-                }
-                #detail-container .swiper-button-prev:after, #detail-container .swiper-button-next:after {
-                    font-size: 15px;
-                }
-                /* Bootstrap-achtig styling voor het reserveringsformulier (PWA zonder Bootstrap core) */
-                #detail-container .card { background-color: #fff; border: 1px solid rgba(0,0,0,.125); border-radius: 12px; }
-                #detail-container .border-radius { border-radius: 12px !important; }
-                #detail-container .btn { display: inline-block; padding: .5rem 1rem; border: 1px solid transparent; border-radius: .375rem; cursor: pointer; text-decoration: none; font-size: 1rem; }
-                #detail-container .btn-light { background-color: #f8f9fa; color: #212529; border-color: #dee2e6; }
-                #detail-container .btn-svr-blue { background-color: #008AD3; color: #fff; }
-                #detail-container .shadow-none { box-shadow: none; }
-                #detail-container .form-control, #detail-container .form-select {
-                    display: block; width: 100%; box-sizing: border-box;
-                    padding: .5rem .75rem; margin: 0 0 .6rem 0;
-                    font-size: 1rem; color: #212529; background-color: #fff;
-                    border: 1px solid #ced4da; border-radius: .375rem;
-                }
-                #detail-container textarea.form-control { font-family: inherit; }
-                #detail-container .input-group { margin-bottom: .6rem; }
-                #detail-container small { font-size: 13px; }
-                #detail-container .link-dark { color: black !important; }
-                #detail-container .float-right { float: right; }
-                #detail-container .float-left { float: left; }
-                #detail-container .text-center { text-align: center; }
-                #detail-container .d-inline-block { display: inline-block; }
-                #detail-container .d-block { display: block; }
-                #detail-container .swiper-slide img { max-width: 100%; max-height: 100%; object-fit: contain; }
-            `;
+        // Container-CSS staat nu statisch in css/local_style.css (was inline)
 
         // Sticky gele close-header, exact zoals in de originele PWA
         const closeBtn = `<div class="detail-header" style="position: sticky; top: 0; background: #FDCC01; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 10001; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: grab;">
@@ -2155,9 +2053,6 @@ async function renderDetail(objectId) {
 
         const tempDiv = document.createElement('div');
         tempDiv.className = 'injected-detail-content';
-        const styleEl = document.createElement('style');
-        styleEl.innerHTML = containerStyle;
-        tempDiv.appendChild(styleEl);
         tempDiv.insertAdjacentHTML('beforeend', bodyParts.join(''));
 
         // Verwijder oude content (maar behoud de splash)
@@ -2165,48 +2060,46 @@ async function renderDetail(objectId) {
         elementsToClear.forEach(el => el.remove());
 
         if (splashScreen) splashScreen.classList.add('hide');
-        setTimeout(() => {
-            $(detailSheet).append(closeBtn);
-            detailSheet.appendChild(tempDiv);
+        detailSheet.insertAdjacentHTML('afterbegin', closeBtn);
+        detailSheet.appendChild(tempDiv);
 
-            // Swipe-om-te-sluiten, net als de originele PWA
-            if (window.enableSwipeToClose) window.enableSwipeToClose(detailSheet, window.handleDetailBack, '.detail-header');
+        // Swipe-om-te-sluiten, net als de originele PWA
+        if (window.enableSwipeToClose) window.enableSwipeToClose(detailSheet, window.handleDetailBack, '.detail-header');
 
-            // Swiper carrousel initialiseren (lazy geladen beelden inbegrepen)
-            const swiperEl = tempDiv.querySelector('.svr-detail-swiper');
-            if (swiperEl && !swiperEl.dataset.swiperInitialized && typeof Swiper !== 'undefined') {
-                swiperEl.dataset.swiperInitialized = 'true';
-                try {
-                    new Swiper(swiperEl, {
-                        direction: 'horizontal',
-                        loop: images.length > 1,
-                        speed: 400,
-                        roundLengths: true,
-                        lazy: false,
-                        preloadImages: true,
-                        pagination: { el: '.swiper-pagination', clickable: true },
-                        navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
-                        threshold: 10,
-                        touchStartPreventDefault: false,
-                        on: {
-                            init: function () {
-                                const self = this;
-                                setTimeout(() => self.update(), 500);
-                                setTimeout(() => self.update(), 1500);
-                            }
+        // Swiper carrousel initialiseren (lazy geladen beelden inbegrepen)
+        const swiperEl = tempDiv.querySelector('.svr-detail-swiper');
+        if (swiperEl && !swiperEl.dataset.swiperInitialized && typeof Swiper !== 'undefined') {
+            swiperEl.dataset.swiperInitialized = 'true';
+            try {
+                new Swiper(swiperEl, {
+                    direction: 'horizontal',
+                    loop: images.length > 1,
+                    speed: 400,
+                    roundLengths: true,
+                    lazy: false,
+                    preloadImages: true,
+                    pagination: { el: '.swiper-pagination', clickable: true },
+                    navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+                    threshold: 10,
+                    touchStartPreventDefault: false,
+                    on: {
+                        init: function () {
+                            const self = this;
+                            setTimeout(() => self.update(), 500);
+                            setTimeout(() => self.update(), 1500);
                         }
-                    });
-                    logDebug("Detail Swiper geïnitialiseerd.");
-                } catch (e) {
-                    logDebug("Swiper fout: " + e.message);
-                }
+                    }
+                });
+                logDebug("Detail Swiper geïnitialiseerd.");
+            } catch (e) {
+                logDebug("Swiper fout: " + e.message);
             }
+        }
 
-            // Bootstrap tooltips initialiseren indien beschikbaar
-            if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-                tempDiv.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
-            }
-        }, 250);
+        // Bootstrap tooltips initialiseren indien beschikbaar
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            tempDiv.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+        }
     } catch (e) {
         logDebug("Detail Fout: " + e.message);
         if (splashScreen) splashScreen.classList.add('hide');
@@ -2215,7 +2108,8 @@ async function renderDetail(objectId) {
         const detailErrorMsg = !navigator.onLine
             ? 'Detailpagina\'s zijn alleen beschikbaar met een internetverbinding.'
             : e.message;
-        $(detailSheet).append(`<div style="padding:40px;text-align:center;"><h3>${!navigator.onLine ? 'Geen internetverbinding' : 'Fout'}</h3><p>${detailErrorMsg}</p><button onclick="window.handleDetailBack()">Terug</button></div>`);
+        detailSheet.insertAdjacentHTML('afterbegin', `<div class="detail-header" style="position: sticky; top: 0; background: #FDCC01; padding: 10px; display: flex; align-items: center; justify-content: space-between; z-index: 10001; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: grab;"><button onclick="window.handleDetailBack()" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px; color: #333;"><i class="fas fa-arrow-left"></i></button><h3 style="margin: 0; font-family: 'Befalow'; color: #333; font-size: 1.2rem;">Camping Details</h3><div style="width: 30px;"></div></div>`);
+        detailSheet.insertAdjacentHTML('beforeend', `<div style="padding:40px;text-align:center;"><h3>${!navigator.onLine ? 'Geen internetverbinding' : 'Fout'}</h3><p>${detailErrorMsg}</p><button onclick="window.handleDetailBack()">Terug</button></div>`);
     }
 }
 
