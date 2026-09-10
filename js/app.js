@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.2"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.3"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -2243,7 +2243,7 @@ function renderResults(objects, cLat, cLng) {
 
         const card = `<div class="camping-card">
             <div class="card-body">
-                <h3>${p.name}</h3>
+                <h3 class="camping-name-link" onclick="window.showSVRDetailPage('${obj.id}', 'list'); return false;">${p.name}</h3>
                 <div class="card-location"><i class="fa-solid fa-map-pin"></i> ${p.city}</div>
                 <div class="card-distance"><i class="fa-solid fa-map-pin"></i> Afstand: ${(obj.distM/1000).toFixed(1)} km</div>
             </div>

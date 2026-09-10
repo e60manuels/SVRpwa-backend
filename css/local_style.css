@@ -201,6 +201,7 @@
         .camping-card { background: white; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column; }
         .card-body { padding: 10px 12px; }
         .card-body h3 { margin: 0 0 2px 0; font-family: 'Befalow', sans-serif; font-size: 25px; color: var(--svr-blue); font-weight: normal; }
+        .camping-name-link { cursor: pointer; }
         .card-location { font-size: 13px; color: var(--svr-green); font-weight: 500; margin-bottom: 2px; }
         .card-distance { font-size: 13px; color: var(--svr-red); font-weight: 500; }
         
