@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.4"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.6"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -226,9 +226,8 @@ function getCampingNameMatches(q) {
         const queryLower = normalizeSearchText(q);
         if (!queryLower) return [];
 
-        // Plaatsnamen zijn primair in de zoekhulp; campingnamen volgen daarna
-        // en krijgen maximaal een paar plekken zodat ze bereikbaar blijven maar
-        // de lijst nooit vullen.
+        // Plaatsnamen zijn primair in de zoekhulp; campingnamen vullen daarna de
+        // resterende plekken (eindafkap op 10 via de combine-rule hieronder).
 
         const placeSuggestions = window.allLocations
             .filter(l => {
@@ -245,7 +244,7 @@ function getCampingNameMatches(q) {
             }));
 
         const campingSuggestions = getCampingNameMatches(q)
-            .slice(0, 3)
+            .slice(0, 10)
             .map(o => ({
                 type: 'camping',
                 label: String(o.properties.name || '').trim() + (o.properties.city ? ` (${o.properties.city})` : ''),

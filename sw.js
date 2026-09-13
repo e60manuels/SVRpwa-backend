@@ -1,4 +1,4 @@
-const CACHE_NAME = 'svr-pwa-b-v1.6.4';
+const CACHE_NAME = 'svr-pwa-b-v1.6.6';
 const MAP_CACHE_NAME = 'svr-pwa-b-tiles';
 const ASSETS_TO_CACHE = [
   './',
@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/regular.min.css',
   'https://unpkg.com/swiper/swiper-bundle.min.css',
   'https://unpkg.com/swiper/swiper-bundle.min.js'
 ];
@@ -80,7 +81,9 @@ self.addEventListener('fetch', (event) => {
 
   if (isAppShell) {
     event.respondWith(
-      fetch(event.request)
+      // cache: 'no-cache' forceert hervalidatie met de server, zodat GitHub
+      // Pages/Fastly's max-age=600 de HTML niet tot tien minuten oud serveert.
+      fetch(event.request, { cache: 'no-cache' })
         .then(networkResponse => {
           return caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, networkResponse.clone());
