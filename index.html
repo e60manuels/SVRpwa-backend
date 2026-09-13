@@ -26,18 +26,20 @@
     <link rel="stylesheet" href="css/MarkerCluster.css" />
     <link rel="stylesheet" href="css/MarkerCluster.Default.css" />
 
-    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/regular.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/regular.min.css">
     </noscript>
 
     <link rel="preload" href="https://unpkg.com/swiper/swiper-bundle.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css"></noscript>
 
-    <link rel="stylesheet" href="css/local_style.css?v=1.6.3" />
-    <link rel="stylesheet" href="css/custom_styles.css?v=1.6.3" />
+    <link rel="stylesheet" href="css/local_style.css?v=1.6.4" />
+    <link rel="stylesheet" href="css/custom_styles.css?v=1.6.4" />
 </head>
 <body>
 
@@ -87,7 +89,9 @@
             </div>
             
             <div class="search-container" style="position: relative;">
-                <i class="fas fa-search" id="searchIcon"></i>
+                <button id="searchResetBtn" class="search-reset-btn" title="Zoekopdracht wissen" style="display:none;" onclick="window.resetSearch()" aria-label="Zoekopdracht wissen">
+                    <i class="fas fa-times"></i>
+                </button>
                 <input type="text" id="searchInput" placeholder="Zoek een SVR camping" autocomplete="off">
                 <button id="infoBtn" class="map-stack-btn" onclick="window.showHelp()">
                     <i class="fas fa-info"></i>
@@ -153,9 +157,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/leaflet.markercluster.js"></script>
     <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
-    <script src="js/config.js?v=1.6.3"></script>
-    <script src="js/app.js?v=1.6.3"></script>
-    <script src="js/pwa_install.js?v=1.6.3"></script>
+<script src="js/config.js?v=1.6.4"></script>
+    <script src="js/app.js?v=1.6.4"></script>
+    <script src="js/pwa_install.js?v=1.6.4"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

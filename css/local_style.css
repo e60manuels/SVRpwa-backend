@@ -126,7 +126,23 @@
         .search-container { flex: 1; display: flex; background: white; border-radius: 20px; padding: 0 8px; align-items: center; height: 40px; box-sizing: border-box; position: relative; z-index: 10; }
         .search-container input { border: none; outline: none; width: 100%; padding: 0 8px; font-size: 15px; background: transparent; }
         
-        #searchIcon { color: var(--svr-blue); padding: 5px; font-size: 16px; }
+        .search-reset-btn {
+            width: 26px;
+            height: 26px;
+            min-width: 26px;
+            border: none;
+            border-radius: 50%;
+            background: #eee;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            font-size: 13px;
+            cursor: pointer;
+            margin-right: 4px;
+        }
+        .search-reset-btn:hover { background: #ddd; color: #333; }
         .search-container #infoBtn.map-stack-btn {
             width: 32px;
             height: 32px;
@@ -666,7 +682,7 @@
 
     /* Header moet hoger zijn dan list-container voor suggesties */
     .svr-header {
-        z-index: 1001 !important;
+        z-index: 2000 !important;
     }
 
     /* === HELP OVERLAY: desktop herpositionering === */
@@ -762,7 +778,8 @@
        Beide openen rechts, over de lijst heen.
        Standaard verborgen; wordt zichtbaar via JS (display:block). */
     #detail-container,
-    #svr-filter-overlay {
+    #svr-filter-overlay,
+    #svr-favorites-overlay {
         position: absolute !important;
         top: var(--header-height) !important;
         right: 0 !important;
@@ -779,8 +796,9 @@
         padding: 0 !important;
     }
 
-    /* Filter content vult het paneel volledig en is scrollbaar */
-    #svr-filter-overlay #svr-filter-overlay-content {
+    /* Filter/favorieten content vult het paneel volledig en is scrollbaar */
+    #svr-filter-overlay #svr-filter-overlay-content,
+    #svr-favorites-overlay #svr-favorites-overlay-content {
         height: calc(100% - 60px) !important; /* Ruimte voor header/footer */
         overflow-y: auto !important;
         padding: 15px;
@@ -788,17 +806,21 @@
     }
 
     /* Scrollbar styling voor een betere UX op desktop */
-    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar {
+    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar,
+    #svr-favorites-overlay #svr-favorites-overlay-content::-webkit-scrollbar {
         width: 8px;
     }
-    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar-track {
+    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar-track,
+    #svr-favorites-overlay #svr-favorites-overlay-content::-webkit-scrollbar-track {
         background: #f1f1f1;
     }
-    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar-thumb {
+    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar-thumb,
+    #svr-favorites-overlay #svr-favorites-overlay-content::-webkit-scrollbar-thumb {
         background: #ccc;
         border-radius: 4px;
     }
-    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar-thumb:hover {
+    #svr-filter-overlay #svr-filter-overlay-content::-webkit-scrollbar-thumb:hover,
+    #svr-favorites-overlay #svr-favorites-overlay-content::-webkit-scrollbar-thumb:hover {
         background: #aaa;
     }
 
@@ -868,6 +890,7 @@
     .search-container { height: 32px; }
     .search-container input { font-size: 13px; }
     #searchIcon { font-size: 14px; }
+    .search-reset-btn { width: 24px; height: 24px; min-width: 24px; font-size: 12px; }
     .map-stack-btn { width: 36px; height: 36px; }
     .map-stack-btn i { font-size: 14px; }
     .active-filter-chip { font-size: 9px; height: 22px; padding: 0 8px; }

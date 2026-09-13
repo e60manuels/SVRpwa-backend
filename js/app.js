@@ -1,9 +1,50 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.3"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.4"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
+
+// Normaliseer zoektekst: kleine letters, diakritiek weg, aanhalingstekens
+// genormaliseerd, meerdere spaties ingedikt.
+function normalizeSearchText(value) {
+    return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[‘’`´]/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Zoekt campingnamen in de (eenmalig opgebouwde) lokale dataset en retourneert
+// de campings gesorteerd op relevantie (0=naam start met zoekterm, 1=een woord
+// start ermee, 2=zoekterm komt er elders in voor). Werkt ook offline.
+function getCampingNameMatches(q) {
+    const index = window.campingSearchIndex;
+    if (!Array.isArray(index)) return [];
+
+    const query = normalizeSearchText(q);
+    if (!query) return [];
+
+    const matches = [];
+    for (let i = 0; i < index.length; i++) {
+        const entry = index[i];
+        if (!entry.name || !entry.n.includes(query)) continue;
+
+        let rank = 2;
+        if (entry.n.startsWith(query)) {
+            rank = 0;
+        } else if (entry.n.split(/\s+/).some(word => word.startsWith(query))) {
+            rank = 1;
+        }
+        matches.push({ camping: entry.camping, name: entry.name, rank });
+    }
+
+    return matches
+        .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name, 'nl'))
+        .map(x => x.camping);
+}
 
 // [SECTION: INITIALIZATION]
 (function () {
@@ -28,6 +69,10 @@ window._detailCache = {};
 
     // Flag to track if we already have some data on screen
     window.hasDataOnScreen = false;
+
+    // Zoekintentie na klik op een suggestie ('camping' of 'place'), zodat
+    // performSearch weet welk type de gebruiker bedoelde.
+    window._searchIntent = null;
 
     // Introduce a flag to control PWA prompt visibility after help overlay interaction
     window.shouldShowPWAAfterHelp = false; // Initialize the flag
@@ -133,6 +178,16 @@ window._detailCache = {};
             objects.sort((a, b) => a.distM - b.distM);
             window.staticCampsites = objects;
 
+            // Eenmalig opgebouwde zoekindex voor campingnamen (i.p.v. bij elke
+            // toetsaanslag alle campings opnieuw te normaliseren).
+            window.campingSearchIndex = objects
+                .filter(o => o && o.id && o.properties && o.properties.name)
+                .map(o => ({
+                    camping: o,
+                    name: String(o.properties.name).trim(),
+                    n: normalizeSearchText(o.properties.name)
+                }));
+
             // Direct renderen (gebruik skipFitBounds om verspringen te voorkomen bij start)
             window.skipFitBounds = true;
             renderResults(objects, startLat, startLng);
@@ -168,11 +223,43 @@ window._detailCache = {};
     loadLocations();
 
     window.getSuggestionsLocal = function(q) {
-        const queryLower = q.toLowerCase().trim();
-        return window.allLocations.filter(l => 
-            l.name.toLowerCase().startsWith(queryLower) || 
-            l.name.toLowerCase().includes(" " + queryLower)
-        ).slice(0, 10).map(l => `${l.name} (${l.province})`);
+        const queryLower = normalizeSearchText(q);
+        if (!queryLower) return [];
+
+        // Plaatsnamen zijn primair in de zoekhulp; campingnamen volgen daarna
+        // en krijgen maximaal een paar plekken zodat ze bereikbaar blijven maar
+        // de lijst nooit vullen.
+
+        const placeSuggestions = window.allLocations
+            .filter(l => {
+                const name = normalizeSearchText(l.name);
+                return name.startsWith(queryLower) ||
+                       name.includes(" " + queryLower);
+            })
+            .slice(0, 7)
+            .map(l => ({
+                type: 'place',
+                label: `${l.name} (${l.province})`,
+                value: l.name,
+                province: l.province
+            }));
+
+        const campingSuggestions = getCampingNameMatches(q)
+            .slice(0, 3)
+            .map(o => ({
+                type: 'camping',
+                label: String(o.properties.name || '').trim() + (o.properties.city ? ` (${o.properties.city})` : ''),
+                value: String(o.properties.name || '').trim(),
+                id: o.id,
+                camping: o
+            }));
+
+        // Combineer: plaatsen eerst, campings als aanvulling (max 10).
+        return [...placeSuggestions, ...campingSuggestions].slice(0, 10);
+    };
+
+    window.findLocalCampingMatches = function(q) {
+        return getCampingNameMatches(q);
     };
 
     window.getCoordinatesWeb = async function(place) {
@@ -232,13 +319,13 @@ window._detailCache = {};
         
         /* MOBILE STYLES (default) */
         @media (max-width: 767px) {
-            #svr-filter-overlay {
+            #svr-filter-overlay, #svr-favorites-overlay {
                 position: fixed; bottom: 0; left: 0; width: 100%; height: 90vh;
                 background-color: #f0f0f0; z-index: 9995; display: flex; flex-direction: column;
                 box-sizing: border-box; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
                 border-top-left-radius: 12px; border-top-right-radius: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
             }
-            #svr-filter-overlay.open { transform: translateY(0); }
+            #svr-filter-overlay.open, #svr-favorites-overlay.open { transform: translateY(0); }
             .svr-overlay-header { 
                 background-color: #f0f0f0; 
                 padding: 8px 15px 12px 15px; 
@@ -274,7 +361,7 @@ window._detailCache = {};
 
         /* SHARED STYLES (Both Mobile & Desktop) */
         .svr-overlay-title { font-size: 1.2rem; font-weight: bold; margin: 0; color: #008AD3; font-family: 'Befalow', sans-serif; text-align: left; }
-        #svr-filter-overlay-content { flex-grow: 1; overflow-y: auto; width: 100%; background-color: #f0f0f0; padding: 15px; box-sizing: border-box; scroll-behavior: smooth; }
+        #svr-filter-overlay-content, #svr-favorites-overlay-content { flex-grow: 1; overflow-y: auto; width: 100%; background-color: #f0f0f0; padding: 15px; box-sizing: border-box; scroll-behavior: smooth; }
         #active-filters-holder { background: #FDCC01; border-radius: 12px; padding: 12px 15px; margin-bottom: 15px; display: none; box-sizing: border-box; width: 100%; position: sticky; top: 0; z-index: 100; }
         .active-filter-tag { display: inline-flex; align-items: center; background: white; padding: 4px 10px; border-radius: 15px; margin: 4px; font-size: 12px; font-weight: bold; color: #008AD3; border: 1px solid #ddd; }
         .filter-section-card { background: white; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: visible !important; }
@@ -296,6 +383,7 @@ window._detailCache = {};
         .svr-footer-btn { flex: 1; height: 40px; border-radius: 20px; font-size: 0.9rem; font-weight: bold; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         #svr-filter-apply-btn { background-color: #FDCC01; color: #333; }
         #svr-filter-reset-btn { background-color: white; color: #c0392b; border: 1px solid #ddd; }
+        #svr-favorites-reset-btn { background-color: white; color: #c0392b; border: 1px solid #ddd; }
         .filter-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f9f9f9; }
         
         /* Filter Sub-Dropdown Styles */
@@ -363,7 +451,7 @@ window._detailCache = {};
 
         /* DESKTOP SPECIFIC (min-width: 768px) */
         @media (min-width: 768px) {
-            #svr-filter-overlay { 
+            #svr-filter-overlay, #svr-favorites-overlay { 
                 display: flex; flex-direction: column; background-color: #f0f0f0; 
                 border-radius: 0; transform: none !important; transition: none !important;
                 overflow: hidden;
@@ -397,7 +485,7 @@ window._detailCache = {};
             }
 
             /* Content scrollable maken zonder header te pushen */
-            #svr-filter-overlay-content {
+            #svr-filter-overlay-content, #svr-favorites-overlay-content {
                 flex: 1 1 auto;
                 overflow-y: auto !important;
                 background-color: #f8f8f8;
@@ -539,6 +627,49 @@ window.hideFilterOverlay = function() {
 
     // Enable swipe for filter overlay
     window.enableSwipeToClose(overlay, window.closeFilterOverlay, '.svr-overlay-header');
+
+    // --- FAVORIETEN OVERLAY (zelfde opbouw als de Filters-overlay) ---
+    const favOverlay = document.createElement('div'); favOverlay.id = 'svr-favorites-overlay';
+    favOverlay.innerHTML = `
+        <div class="svr-overlay-header" id="favorites-drag-header">
+            <div style="width: 40px; height: 5px; background: #BBB; border-radius: 3px;"></div>
+            <h3 class="svr-overlay-title">Favorieten</h3>
+            <div class="svr-overlay-close" onclick="window.closeFavoritesOverlay()"><i class="fas fa-times"></i></div>
+        </div>
+        <div id="svr-favorites-overlay-content">
+            <div id="favorites-container"></div>
+        </div>
+        <div class="svr-overlay-footer">
+            <button id="svr-favorites-reset-btn" class="svr-footer-btn" onclick="window.clearFavorites()">Wis favorieten</button>
+        </div>
+    `;
+    document.body.appendChild(favOverlay);
+    window.enableSwipeToClose(favOverlay, window.closeFavoritesOverlay, '.svr-overlay-header');
+
+    // Reset: zoekveld leegmaken, actieve filters wissen en de default kaart + lijst
+    // tonen (alle campings rond het Nederlandse startpunt).
+    window.resetSearch = function() {
+        window._searchIntent = null;
+        $('#searchResetBtn').hide();
+        $('#searchInput').val('');
+        $('#suggestionsList').hide();
+
+        // Filters ook leegmaken zodat "volledige default" echt compleet is.
+        if (window.currentFilters && window.currentFilters.length > 0) {
+            const overlay = document.getElementById('svr-filter-overlay');
+            if (overlay) {
+                overlay.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            }
+            window.currentFilters = [];
+            const btn = document.getElementById('filterBtn');
+            if (btn) { btn.style.background = 'white'; btn.style.color = '#333'; }
+            updateActiveFiltersUI([], 'both');
+            const expires = "; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            document.cookie = "filters=[]; expires=" + expires + "; path=/";
+        }
+
+        window.loadStaticCampsites();
+    };
 
     window.toggle_filters = async function() {
         const isDesktop = window.innerWidth >= 768;
@@ -1050,6 +1181,252 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// Geometrisch middelpunt (centroid van de bounding box) van een reeks campings
+// in API-objectvorm ({ id, geometry: { coordinates: [lng, lat] }, properties }).
+// Retourneert null als geen enkele camping een geldige positie heeft.
+function centroidOf(campings) {
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity, valid = false;
+    for (const c of campings || []) {
+        const g = c && c.geometry ? c.geometry.coordinates : null;
+        if (!g || g.length < 2) continue;
+        const lat = parseFloat(g[1]), lng = parseFloat(g[0]);
+        if (!isFinite(lat) || !isFinite(lng)) continue;
+        valid = true;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+    }
+    if (!valid) return null;
+    return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
+}
+
+// Verplaatst de rode punaise (zoekcentrum) naar de opgegeven locatie.
+function placeSearchMarker(lat, lng) {
+    if (centerMarker) map.removeLayer(centerMarker);
+    centerMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            className: 'search-marker',
+            html: '<i class="fa-solid fa-map-pin" style="color:#c0392b;font-size:30px;"></i>',
+            iconSize:[30,30],
+            iconAnchor:[15,30]
+        }),
+        zIndexOffset: 2000
+    }).addTo(map);
+}
+
+// Geeft dezelfde kaartweergave als een plaatsnaam-zoekopdracht rond (lat,lng):
+// het middelpunt uitgebreid met de tien dichtstbijzijnde campings. Zo verwijdt
+// een enkele campingmatch uit een naam-zoekopdracht niet maximaal in te zoomen.
+function getPlaceSearchViewBounds(lat, lng) {
+    const bounds = L.latLngBounds([lat, lng]);
+    if (Array.isArray(window.staticCampsites)) {
+        window.staticCampsites
+            .filter(o => o && o.geometry && o.geometry.coordinates && o.properties && o.properties.type_camping !== 3)
+            .map(o => ({ o, d: calculateDistance(lat, lng, o.geometry.coordinates[1], o.geometry.coordinates[0]) }))
+            .sort((a, b) => a.d - b.d)
+            .slice(0, 10)
+            .forEach(({ o }) => { const c = o.geometry.coordinates; bounds.extend([c[1], c[0]]); });
+    }
+    return bounds;
+}
+
+// Renders lokale campingmatches: filters toepassen, zoekcentrum bepalen,
+// lijst + kaart vullen en de punaise op de juiste plaats zetten.
+function renderCampingResults(campings) {
+    let filtered = campings;
+
+    // Zoekcentrum = middelpunt van de gevonden campings (bij één match de
+    // positie van die camping). Dit houdt de rode punaise en de weergegeven
+    // afstanden consistent met wat er op de kaart staat.
+    const center = centroidOf(filtered);
+    const sLat = center ? center.lat : 52.1326;
+    const sLng = center ? center.lng : 5.2913;
+
+    const objects = filtered
+        .filter(o => o && o.geometry && o.geometry.coordinates)
+        .map(o => ({
+            ...o,
+            distM: calculateDistance(sLat, sLng, o.geometry.coordinates[1], o.geometry.coordinates[0])
+        }));
+
+    objects.sort((a, b) => a.distM - b.distM);
+    placeSearchMarker(sLat, sLng);
+
+    if (filtered.length === 1) {
+        // Enkele match uit een naam-zoekopdracht: zoom gelijk aan een
+        // plaatsnaam-zoekopdracht rond deze camping i.p.v. maximaal in te
+        // zoomen op het punt van de camping (fitBounds op één positie).
+        window.skipFitBounds = true;
+        renderResults(objects, sLat, sLng);
+        window.skipFitBounds = false;
+        const viewBounds = getPlaceSearchViewBounds(sLat, sLng);
+        window.lastMapBounds = viewBounds;
+        if (!isListView) {
+            map.fitBounds(viewBounds, { padding: [50, 50] });
+        }
+    } else {
+        renderResults(objects, sLat, sLng);
+    }
+
+    window.hasDataOnScreen = true;
+    setTimeout(() => map.invalidateSize(), 500);
+}
+
+// === FAVORIETEN (lokaal, geen serverafhankelijkheid) ===
+const FAVORITES_KEY = 'svr_favorites';
+
+function getFavoriteIds() {
+    try {
+        const raw = localStorage.getItem(FAVORITES_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveFavoriteIds(ids) {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids));
+}
+
+window.isSVRFavorite = function(id) {
+    return getFavoriteIds().includes(id);
+};
+
+// Toggle voor de hartje-knop in de detailheader. Werkt offline en onafhankelijk
+// van de SVR-sessie; favorieten worden lokaal opgeslagen.
+window.toggleSVRFavorite = function(id) {
+    if (!id) return;
+    const favs = getFavoriteIds();
+    const isFav = favs.includes(id);
+    const next = isFav ? favs.filter(f => f !== id) : favs.concat(id);
+    saveFavoriteIds(next);
+
+    // Het hartje in de detailheader is het enige hartje op de pagina.
+    const icon = document.querySelector('#detail-container button[id^="heart_"] i');
+    if (icon) {
+        icon.classList.toggle('fa-solid', !isFav);
+        icon.classList.toggle('fa-regular', isFav);
+    }
+    return !isFav;
+};
+
+// Toont de favorietenlijst in een overlay die qua opbouw en stijl identiek is
+// aan de Filters-pagina (header met sluitknop, content scrollbaar).
+window.showFavorites = function(withHistory = true) {
+    const favOverlay = document.getElementById('svr-favorites-overlay');
+    const backdrop = document.getElementById('svr-filter-backdrop');
+    if (!favOverlay) return;
+    const isDesktop = window.innerWidth >= 768;
+
+    renderFavoritesOverlayContent();
+
+    if (isDesktop) {
+        openRightPanel('favorites');
+        favOverlay.classList.add('open');
+    } else {
+        backdrop.style.display = 'block';
+        favOverlay.style.transform = '';
+        setTimeout(() => { favOverlay.classList.add('open'); backdrop.classList.add('open'); }, 10);
+    }
+    if (withHistory) {
+        history.pushState({ view: 'favorites' }, "");
+    }
+};
+
+window.hideFavoritesOverlay = function() {
+    if (window.parent !== window) {
+        window.parent.postMessage({ type: 'svr-nav', panel: 'favorites', open: false }, '*');
+    }
+    const isDesktop = window.innerWidth >= 768;
+    const favOverlay = document.getElementById('svr-favorites-overlay');
+    const backdrop = document.getElementById('svr-filter-backdrop');
+    if (!favOverlay) return;
+
+    if (isDesktop) {
+        closeRightPanel();
+        favOverlay.style.display = 'none';
+        favOverlay.classList.remove('open');
+    } else {
+        favOverlay.classList.remove('open');
+        backdrop.classList.remove('open');
+        favOverlay.style.transform = '';
+        setTimeout(() => {
+            if (!favOverlay.classList.contains('open')) {
+                backdrop.style.display = 'none';
+            }
+        }, 500);
+    }
+};
+
+window.closeFavoritesOverlay = function() {
+    if (history.state && (history.state.view === 'favorites' || history.state.view === 'detail')) {
+        history.back();
+    } else {
+        window.hideFavoritesOverlay();
+    }
+};
+
+// Opent de detailpagina vanuit de favorietenlijst en sluit eerst de overlay,
+// zodat de history-stack netjes blijft (favorieten-entry wordt gepopt).
+window.openFavoriteDetail = function(id) {
+    window.closeFavoritesOverlay();
+    setTimeout(() => window.showSVRDetailPage(id, 'list'), 150);
+};
+
+window.openFavoriteMap = function(lat, lng, id) {
+    window.closeFavoritesOverlay();
+    setTimeout(() => window.focusOnMarker(lat, lng, id), 150);
+};
+
+// Leegt de favorietenlijst via de "Wis favorieten"-knop en hertekent de overlay
+// (toont dan de lege-staatmelding). Zelfde gedrag als "Wis filters".
+window.clearFavorites = function() {
+    saveFavoriteIds([]);
+    renderFavoritesOverlayContent();
+};
+
+// Vult de favorieten-overlay met dezelfde campingkaarten als de lijstweergave.
+function renderFavoritesOverlayContent() {
+    const container = document.getElementById('favorites-container');
+    if (!container) return;
+    const favs = getFavoriteIds();
+    const campings = (window.staticCampsites || []).filter(c => favs.includes(c.id));
+
+    if (campings.length === 0) {
+        container.innerHTML =
+            '<div style="padding:20px;text-align:center;">Nog geen favorieten. Klik op het hartje op een campingdetailpagina om een camping favoriet te maken.</div>';
+        return;
+    }
+
+    const center = centroidOf(campings);
+    const sLat = center ? center.lat : 52.1326;
+    const sLng = center ? center.lng : 5.2913;
+
+    const cardsHtml = campings.map(c => {
+        const g = c.geometry ? c.geometry.coordinates : null;
+        const lat = g ? g[1] : null;
+        const lng = g ? g[0] : null;
+        const distM = calculateDistance(sLat, sLng, lat, lng);
+        const name = c.properties ? (c.properties.name || 'Onbekende camping') : 'Onbekende camping';
+        const city = c.properties ? (c.properties.city || '') : '';
+        const safeName = btoa(unescape(encodeURIComponent(name)));
+        return `<div class="camping-card">
+            <div class="card-body">
+                <h3 class="camping-name-link" onclick="window.openFavoriteDetail('${c.id}'); return false;">${name}</h3>
+                <div class="card-location"><i class="fa-solid fa-map-pin"></i> ${city}</div>
+                <div class="card-distance"><i class="fa-solid fa-map-pin"></i> Afstand: ${(distM/1000).toFixed(1)} km</div>
+            </div>
+            <div class="camping-actions">
+                <a href="#" class="action-btn btn-kaart" onclick="window.openFavoriteMap(${lat},${lng}, '${c.id}'); return false;"><i class="fa-solid fa-map"></i> KAART</a>
+                <a href="#" class="action-btn btn-route" onclick="window.openNavHelper(${lat}, ${lng}, '${safeName}'); return false;"><i class="fa-solid fa-route"></i> ROUTE</a>
+                <a href="#" class="action-btn btn-info" onclick="window.openFavoriteDetail('${c.id}'); return false;"><i class="fa-solid fa-circle-info"></i> INFO</a>
+            </div>
+        </div>`;
+    }).join('');
+    container.innerHTML = cardsHtml;
+}
+
 function applyState(state) {
     if (!state) return;
     
@@ -1352,13 +1729,17 @@ window.onpopstate = (e) => {
         const isDesktopPop = window.innerWidth >= 768;
         if (isDesktopPop) {
             // Op desktop: herstel body-class en sluit panelen indien nodig
-            if (!e.state || (e.state.view !== 'detail' && e.state.view !== 'filters')) {
+            if (!e.state || (e.state.view !== 'detail' && e.state.view !== 'filters' && e.state.view !== 'favorites')) {
                 closeRightPanel();
             }
             if (e.state && e.state.view === 'detail' && e.state.objectId) {
                 // Detail heropenen via history (bijv. forward-navigatie)
                 openRightPanel('detail');
                 renderDetail(e.state.objectId);
+            }
+            if (e.state && e.state.view === 'favorites') {
+                // Favorieten heropenen via history (bijv. forward-navigatie)
+                window.showFavorites(false);
             }
             if (!e.state || e.state.view === 'map' || e.state.view === 'list' || e.state.view === 'split') {
                 // Standaard desktop: niets te doen, kaart en lijst zijn altijd zichtbaar
@@ -1384,6 +1765,25 @@ window.onpopstate = (e) => {
             // For any other view, if the filters were open, hide them
             if (filterOverlay && filterOverlay.classList.contains('open')) {
                 window.hideFilterOverlay();
+            }
+        }
+
+        // Handle Favorites View
+        const favOverlayPop = document.getElementById('svr-favorites-overlay');
+        if (e.state.view === 'favorites') {
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'svr-nav', panel: 'favorites', open: true }, '*');
+            }
+            // This is reached if we navigate FORWARD to favorites (rare but possible via history)
+            backdrop.style.display = 'block';
+            setTimeout(() => {
+                favOverlayPop.classList.add('open');
+                backdrop.classList.add('open');
+            }, 10);
+        } else {
+            // For any other view, if favorites were open, hide them
+            if (favOverlayPop && favOverlayPop.classList.contains('open')) {
+                window.hideFavoritesOverlay();
             }
         }
 
@@ -1431,6 +1831,11 @@ window.onpopstate = (e) => {
         
         if (filterOverlay && filterOverlay.classList.contains('open')) {
             window.hideFilterOverlay();
+        }
+
+        const favOverlayNull = document.getElementById('svr-favorites-overlay');
+        if (favOverlayNull && favOverlayNull.classList.contains('open')) {
+            window.hideFavoritesOverlay();
         }
 
         if (detailOverlay.classList.contains('open') && window.parent !== window) {
@@ -1497,6 +1902,7 @@ function openRightPanel(type) {
 
     const detailEl = document.getElementById('detail-container');
     const filterEl = document.getElementById('svr-filter-overlay');
+    const favEl = document.getElementById('svr-favorites-overlay');
 
     // Sluit beide eerst (schone lei)
     if (window.parent !== window) {
@@ -1506,12 +1912,17 @@ function openRightPanel(type) {
         if (filterEl.classList.contains('open') && type !== 'filter') {
             window.parent.postMessage({ type: 'svr-nav', panel: 'filter', open: false }, '*');
         }
+        if (favEl.classList.contains('open') && type !== 'favorites') {
+            window.parent.postMessage({ type: 'svr-nav', panel: 'favorites', open: false }, '*');
+        }
     }
 
     detailEl.style.display = 'none';
     detailEl.classList.remove('open');
     filterEl.style.display = 'none';
     filterEl.classList.remove('open');
+    favEl.style.display = 'none';
+    favEl.classList.remove('open');
 
     // Toon de gevraagde met FLEX (belangrijk voor header fix)
     if (type === 'detail') {
@@ -1520,6 +1931,9 @@ function openRightPanel(type) {
     } else if (type === 'filter') {
         filterEl.style.display = 'flex';
         filterEl.classList.add('open');
+    } else if (type === 'favorites') {
+        favEl.style.display = 'flex';
+        favEl.classList.add('open');
     }
 
     document.body.classList.add('panel-open');
@@ -1541,6 +1955,7 @@ function closeRightPanel() {
 
     const detailEl = document.getElementById('detail-container');
     const filterEl = document.getElementById('svr-filter-overlay');
+    const favEl = document.getElementById('svr-favorites-overlay');
 
     if (window.parent !== window) {
         if (detailEl.classList.contains('open')) {
@@ -1549,12 +1964,17 @@ function closeRightPanel() {
         if (filterEl.classList.contains('open')) {
             window.parent.postMessage({ type: 'svr-nav', panel: 'filter', open: false }, '*');
         }
+        if (favEl.classList.contains('open')) {
+            window.parent.postMessage({ type: 'svr-nav', panel: 'favorites', open: false }, '*');
+        }
     }
 
     detailEl.style.display = 'none';
     detailEl.classList.remove('open');
     filterEl.style.display = 'none';
     filterEl.classList.remove('open');
+    favEl.style.display = 'none';
+    favEl.classList.remove('open');
 
     document.body.classList.remove('panel-open');
     // Desktop: verberg toggle knop (wordt getoond bij scrollen)
@@ -1608,20 +2028,32 @@ $searchInput.on('keydown', function(e) {
     }
 });
 
-// Trigger search on Icon click
-$('#searchIcon').on('click', function() {
-    $suggestionsList.hide();
-    window.performSearch();
-});
-
 $searchInput.on('input', function() {
-    const q = $(this).val(); if (q.length < 2) { $suggestionsList.hide(); return; }
+    const q = $(this).val();
+    $('#searchResetBtn').toggle(q.length > 0);
+    if (q.length < 3) { $suggestionsList.hide(); return; }
     const suggestions = window.getSuggestionsLocal(q);
     $suggestionsList.empty();
     if (suggestions.length === 0) { $suggestionsList.hide(); return; }
-    suggestions.forEach(p => {
-        const $li = $('<li class="suggestion-item"></li>').text(p);
-        $li.on('click', (e) => { e.stopPropagation(); $searchInput.val(p); $suggestionsList.hide(); window.performSearch(); });
+    suggestions.forEach(suggestion => {
+        const icon = suggestion.type === 'camping' ? '⛺' : '📍';
+        const $li = $('<li class="suggestion-item"></li>')
+            .text(`${icon} ${suggestion.label}`);
+        $li.on('click', (e) => {
+            e.stopPropagation();
+            window._searchIntent = suggestion.type;
+            $searchInput.val(suggestion.value);
+            $suggestionsList.hide();
+            // Desktop: sluit een open detail-/filterpaneel zodat de zoekresultaten
+            // zichtbaar worden en ruim de bijbehorende history-entry op.
+            if (window.innerWidth >= 768) {
+                window.closeRightPanel();
+                if (history.state && (history.state.view === 'detail' || history.state.view === 'filters')) {
+                    history.back();
+                }
+            }
+            window.performSearch();
+        });
         $suggestionsList.append($li);
     });
     $suggestionsList.show();
@@ -1637,24 +2069,55 @@ window.performSearch = async function(forceAPI = false) {
     const q = $searchInput.val().trim();
     let sLat = 52.1326, sLng = 5.2913;
 
-    if (q) {
-        // Geocoding om coördinaten van de plaatsnaam te krijgen
-        const coords = await window.getCoordinatesWeb(q);
-        if (coords) {
-            sLat = coords.latitude; sLng = coords.longitude;
-        } else {
-            // Feedback voor niet gevonden locatie (of geen internet: geocoding vereist een verbinding)
-            const originalPlaceholder = $searchInput.attr('placeholder');
-            const notFoundMsg = !navigator.onLine ? 'Geen internetverbinding...' : 'Plaats niet gevonden...';
-            $searchInput.val('').attr('placeholder', notFoundMsg).addClass('search-error');
-            setTimeout(() => {
-                $searchInput.attr('placeholder', originalPlaceholder).removeClass('search-error');
-            }, 3000);
+    // De intentie uit een suggestie-klik (eenmalig verbruiken). Bij een expliciet
+    // gekozen plaats ('place') gaat de zoekopdracht altijd naar die plaats, bij een
+    // expliciet gekozen camping ('camping') direct naar de lokale campingnamen.
+    const searchIntent = window._searchIntent;
+    window._searchIntent = null;
+
+    // Expliciet gekozen camping-suggestie: direct lokaal op naam zoeken.
+    if (searchIntent === 'camping' && q) {
+        const matches = window.findLocalCampingMatches(q);
+        if (matches.length > 0) {
+            renderCampingResults(matches);
             isSearching = false;
             return;
         }
+    }
+
+    // Plaats-primair: de zoekhulp is vooral op plaatsnaam gericht, dus eerst
+    // de plaats proberen te geocoden — niet eerst naar campingnamen kijken.
+    let coords = null;
+    if (q) {
+        coords = await window.getCoordinatesWeb(q);
+        if (coords) {
+            sLat = coords.latitude; sLng = coords.longitude;
+        }
     } else if (currentUserLatLng) {
         sLat = currentUserLatLng.lat; sLng = currentUserLatLng.lng;
+    }
+
+    // Plaats niet gevonden: val terug op campingnamen uit de lokale dataset
+    // (niet bij een expliciet gekozen plaats-suggestie). Werkt ook offline.
+    if (!coords && q && searchIntent !== 'place') {
+        const matches = window.findLocalCampingMatches(q);
+        if (matches.length > 0) {
+            renderCampingResults(matches);
+            isSearching = false;
+            return;
+        }
+    }
+
+    // Echte foutmelding als noch plaats noch campingnaam iets opleverde.
+    if (q && !coords) {
+        const originalPlaceholder = $searchInput.attr('placeholder');
+        const notFoundMsg = !navigator.onLine ? 'Geen internetverbinding...' : 'Plaats niet gevonden...';
+        $searchInput.val('').attr('placeholder', notFoundMsg).addClass('search-error');
+        setTimeout(() => {
+            $searchInput.attr('placeholder', originalPlaceholder).removeClass('search-error');
+        }, 3000);
+        isSearching = false;
+        return;
     }
 
     // Update de rode punaise naar de nieuwe locatie
@@ -1924,7 +2387,7 @@ async function renderDetail(objectId) {
         bodyParts.push(`<div class="card p-3 fw-light" style="display: block; border-radius: 0 15px 15px 0; border: 1px solid rgba(0,0,0,.1); font-size: 12pt; background-color: white; color: #2e2e2e;">`);
         bodyParts.push(`<div>`);
         bodyParts.push(`<div class="veeg-yellow d-inline-block float-left text-center veeg-campings" style="text-transform: capitalize; background-size: 100% 100%;"><h1 class="befalow float-center" style="font-family: Befalow, sans-serif !important;">${escapeHtml(name)}</h1></div>`);
-        bodyParts.push(`<h1 class="float-right d-inline-block"><button class="btn btn-light shadow-none ml-auto" style="color: #d11a2a;"><i class="fa-solid fa-heart" aria-hidden="true"></i> Favoriet</button></h1>`);
+        bodyParts.push(`<h1 class="float-right d-inline-block"><button class="btn btn-light shadow-none ml-auto" id="heart_${objectId}" title="Favoriet (offline opgeslagen)" style="color: #d11a2a;" onclick="window.toggleSVRFavorite('${objectId}'); return false;"><i class="${window.isSVRFavorite(objectId) ? 'fa-solid' : 'fa-regular'} fa-heart" aria-hidden="true"></i> Favoriet</button></h1>`);
         bodyParts.push(`</div>`);
         bodyParts.push(`<hr style="color: rgba(0,0,0,.2)">`);
         if (description && String(description).trim()) {
@@ -2297,14 +2760,23 @@ window.toggleMapMenu = function() {
     menu.innerHTML = `
         <button id="menu-open-svr" style="
             display: block; width: 100%; padding: 12px 16px; border: none; background: none;
-            text-align: left; font-size: 15px; color: #333; cursor: pointer;
+            text-align: left; font-size: 15px; color: #333; cursor: pointer; border-bottom: 1px solid #eee;
         "><i class="fas fa-globe" style="width: 20px; margin-right: 8px;"></i>www.svr.nl</button>
+        <button id="menu-favorites" style="
+            display: block; width: 100%; padding: 12px 16px; border: none; background: none;
+            text-align: left; font-size: 15px; color: #333; cursor: pointer;
+        "><i class="fa-solid fa-heart" style="width: 20px; margin-right: 8px; color: #d11a2a;"></i>Toon favorieten</button>
     `;
     document.body.appendChild(menu);
 
     document.getElementById('menu-open-svr').addEventListener('click', () => {
         window.open('https://www.svr.nl', '_blank');
         window.toggleMapMenu();
+    });
+
+    document.getElementById('menu-favorites').addEventListener('click', () => {
+        window.toggleMapMenu();
+        window.showFavorites();
     });
 
     // Sluit het menu bij een tap buiten het menu/de knop, maar pas vanaf de
