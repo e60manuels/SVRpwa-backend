@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.8"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.9"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -2962,9 +2962,44 @@ window.showHelp = function() {
     }
 };
 
+// Versiepobe: vergelijkt de lokaal draaiende versie met de serverversie
+// (version.json). Zo komt een nieuwe release ook door op installaties waarvan
+// de Service Worker niet (tijdig) wordt bijgewerkt - de SW-update hangt af van
+// CDN-cache en browser-update-throttling en kan daardoor lang achterblijven.
+let __versionCheckDone = false;
+window.checkForAppVersionUpdate = function() {
+    if (__versionCheckDone) return;
+    __versionCheckDone = true;
+    if (!navigator.onLine) return;
+
+    // Unieke querystring forceert een CDN-miss; no-store ontwijkt de browser-cache.
+    fetch('./version.json?t=' + Date.now(), { cache: 'no-store' })
+        .then((r) => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then((data) => {
+            if (!data || typeof data.version !== 'string') return;
+            if (data.version === window.SVR_PWA_VERSION) return;
+
+            // Eénmalige automatische reload per sessie (geen reload-loop).
+            if (sessionStorage.getItem('svr-update-reloaded') === '1') return;
+            sessionStorage.setItem('svr-update-reloaded', '1');
+
+            const toast = document.createElement('div');
+            toast.className = 'app-update-toast';
+            toast.textContent = 'Nieuwe versie ' + data.version + ' beschikbaar - opnieuw laden...';
+            document.body.appendChild(toast);
+
+            setTimeout(() => window.location.reload(), 1200);
+        })
+        .catch(() => { /* Stil negeren: offline of CDN-storing. */ });
+};
+
 // Geen login meer nodig: de app gebruikt de open API van svr-backend en start direct.
 async function initApp() {
     console.log('🚀 SVR PWA Start (API-modus, geen login nodig)');
+    window.checkForAppVersionUpdate();
     window.initializeApp();
 }
 

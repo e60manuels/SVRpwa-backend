@@ -1032,3 +1032,20 @@
     opacity: 1;
     transform: translateX(-50%) translateY(0);
 }
+.app-update-toast {
+    position: fixed;
+    z-index: 9999;
+    left: 50%;
+    top: 24px;
+    transform: translateX(-50%);
+    max-width: 90vw;
+    padding: 10px 16px;
+    background: rgb(1, 139, 211);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
+}
