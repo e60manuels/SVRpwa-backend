@@ -1008,3 +1008,27 @@
 #detail-container .d-inline-block { display: inline-block; }
 #detail-container .d-block { display: block; }
 #detail-container .swiper-slide img { max-width: 100%; max-height: 100%; object-fit: contain; }
+/* Toast-melding voor de Android back-bevestiging ("nogmaals terug om te verlaten") */
+.app-exit-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 100px;
+    transform: translateX(-50%) translateY(20px);
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    max-width: 90vw;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.app-exit-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}

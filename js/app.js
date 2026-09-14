@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.6"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.7"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -1133,6 +1133,9 @@ const top10Layer = L.featureGroup();
 let centerMarker = null;
 let currentUserLatLng = null;
 let userLocationMarker = null;
+// Android back-bevestiging: tijdstip waarop de 'verlaat de app'-toast getoond
+// is. Een tweede back binnen 3 seconden bevestigt het verlaten.
+let exitConfirmArmed = 0;
 
 // Add zoom control positioned at bottom right (desktop only)
 const isDesktop = window.innerWidth >= 768;
@@ -1201,8 +1204,11 @@ function centroidOf(campings) {
 }
 
 // Verplaatst de rode punaise (zoekcentrum) naar de opgegeven locatie.
+// In de favorieten-context (KAART-knop) wordt de punaise onderdrukt: de favoriet
+// wordt dan via de marker-popup aangeduid i.p.v. door een rode pin.
 function placeSearchMarker(lat, lng) {
     if (centerMarker) map.removeLayer(centerMarker);
+    if (window.suppressSearchMarker) return;
     centerMarker = L.marker([lat, lng], {
         icon: L.divIcon({
             className: 'search-marker',
@@ -1228,6 +1234,19 @@ function getPlaceSearchViewBounds(lat, lng) {
             .forEach(({ o }) => { const c = o.geometry.coordinates; bounds.extend([c[1], c[0]]); });
     }
     return bounds;
+}
+
+// Geeft de dichtstbijzijnde campings rondom (lat,lng). Gebruikt door de
+// favorieten-KAART-knop om de omgeving van een favoriet te tonen (i.p.v. alleen
+// de enkele favoriet), zodat de kaart net als op desktop contextmarkers toont.
+function nearestCampingsAround(lat, lng, count = 10) {
+    if (!Array.isArray(window.staticCampsites)) return [];
+    return window.staticCampsites
+        .filter(o => o && o.geometry && o.geometry.coordinates)
+        .map(c => ({ c, d: calculateDistance(lat, lng, c.geometry.coordinates[1], c.geometry.coordinates[0]) }))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, count)
+        .map(({ c }) => c);
 }
 
 // Renders lokale campingmatches: filters toepassen, zoekcentrum bepalen,
@@ -1352,13 +1371,30 @@ window.hideFavoritesOverlay = function() {
         favOverlay.style.transform = '';
         setTimeout(() => {
             if (!favOverlay.classList.contains('open')) {
-                backdrop.style.display = 'none';
+                // De backdrop wordt ook door de detail-/filteroverlay gebruikt:
+                // laat 'm staan als er ondertussen een andere overlay open is
+                // (bijv. detail dat direct uit een favorieten-tegel opent).
+                const detailEl = document.getElementById('detail-container');
+                const filterEl = document.getElementById('svr-filter-overlay');
+                if (!detailEl.classList.contains('open') && !filterEl.classList.contains('open')) {
+                    backdrop.style.display = 'none';
+                }
             }
         }, 500);
     }
 };
 
 window.closeFavoritesOverlay = function() {
+    const isDesktop = window.innerWidth >= 768;
+    // Desktop: de KAART-knop pan-te de kaart naar een favoriet terwijl de
+    // favorieten-popup open bleef. Bij sluiten herstellen we het laatste
+    // zoekvenster zodat je teruggaat naar de laatst getoonde zoekopdracht.
+    if (isDesktop && window.favoriteMapPanned) {
+        window.favoriteMapPanned = false;
+        if (window.lastMapBounds) {
+            map.fitBounds(window.lastMapBounds, { padding: [50, 50] });
+        }
+    }
     if (history.state && (history.state.view === 'favorites' || history.state.view === 'detail')) {
         history.back();
     } else {
@@ -1366,16 +1402,76 @@ window.closeFavoritesOverlay = function() {
     }
 };
 
-// Opent de detailpagina vanuit de favorietenlijst en sluit eerst de overlay,
-// zodat de history-stack netjes blijft (favorieten-entry wordt gepopt).
+// Opent de detailpagina vanuit de favorietenlijst. De overlay wordt alleen
+// visueel gesloten — de favorites history-entry blijft staan, zodat sluiten van
+// de detailpagina (history.back) weer op de favorieten uitkomt.
 window.openFavoriteDetail = function(id) {
-    window.closeFavoritesOverlay();
-    setTimeout(() => window.showSVRDetailPage(id, 'list'), 150);
+    window.hideFavoritesOverlay();
+    const openDetail = () => window.showSVRDetailPage(id, 'list');
+    if (window.innerWidth >= 768) {
+        openDetail();
+    } else {
+        // Mobiel: laat de favorites-sheet eerst wegzakken voordat de detail-sheet
+        // omhoog komt, zodat ze elkaar niet visueel bevechten.
+        setTimeout(openDetail, 150);
+    }
 };
 
+// Toont een favoriet op de kaart:
+// - Desktop: de favorieten-popup blijft open en de kaart pan/zoomt naar de
+//   camping. De lijst/zoekresultaten worden niet vervangen.
+// - Mobiel: de sheet wordt visueel gesloten, de camping wordt op de kaart
+//   getoond en een map-history-entry komt bovenop de (behouden) favorites-entry,
+//   zodat Android-back terugkeert naar de favorietenlijst i.p.v. de app te verlaten.
 window.openFavoriteMap = function(lat, lng, id) {
-    window.closeFavoritesOverlay();
-    setTimeout(() => window.focusOnMarker(lat, lng, id), 150);
+    const isDesktop = window.innerWidth >= 768;
+    if (isDesktop) {
+        window.favoriteMapPanned = true;
+        // Herbind de bestaande marker-popup met GPS-afstand (i.p.v. zoekcentrum-afstand)
+        if (currentUserLatLng) {
+            let favMarker = null;
+            markerCluster.eachLayer(m => { if (m.objId === id) favMarker = m; });
+            if (!favMarker) top10Layer.eachLayer(m => { if (m.objId === id) favMarker = m; });
+            if (favMarker) {
+                const ll = favMarker.getLatLng();
+                const gpsDistKm = (calculateDistance(currentUserLatLng.lat, currentUserLatLng.lng, ll.lat, ll.lng) / 1000).toFixed(1);
+                const popup = favMarker.getPopup();
+                if (popup) {
+                    popup.setContent(popup.getContent().replace(/Afstand: [\d.]+ km/, 'Afstand: ' + gpsDistKm + ' km'));
+                }
+            }
+        }
+        window.focusOnMarker(lat, lng, id);
+        return;
+    }
+    // Mobiel: alleen visueel sluiten (history blijft) zodat back naar favorieten gaat
+    window.hideFavoritesOverlay();
+    setTimeout(() => {
+        const camping = (window.staticCampsites || []).find(c => c.id === id);
+        if (camping) {
+            // Net als op desktop de omgeving van de favoriet tonen (de favoriet
+            // wordt via de marker-popup aangeduid) i.p.v. alleen de ene camping.
+            // suppressDistance (GPS-afstand in popup) + suppressSearchMarker
+            // (geen rode punaise) blijven in de favorieten-context actief.
+            const clat = camping.geometry ? camping.geometry.coordinates[1] : lat;
+            const clng = camping.geometry ? camping.geometry.coordinates[0] : lng;
+            window.suppressDistance = true;
+            window.suppressSearchMarker = true;
+            renderCampingResults(nearestCampingsAround(clat, clng, 10));
+            window.suppressSearchMarker = false;
+            window.suppressDistance = false;
+            setTimeout(() => {
+                window.focusOnMarker(clat, clng, camping.id);
+            }, 300);
+        } else {
+            window.focusOnMarker(lat, lng, id);
+        }
+        // Push map-state bovenop de favorites-entry zodat back eerst weer de
+        // favorietenlijst opent (alleen als favorites nog onderaan de stack staat).
+        if (history.state && history.state.view === 'favorites') {
+            history.pushState({ view: 'map', fromFavorites: true }, '');
+        }
+    }, 150);
 };
 
 // Leegt de favorietenlijst via de "Wis favorieten"-knop en hertekent de overlay
@@ -1398,15 +1494,10 @@ function renderFavoritesOverlayContent() {
         return;
     }
 
-    const center = centroidOf(campings);
-    const sLat = center ? center.lat : 52.1326;
-    const sLng = center ? center.lng : 5.2913;
-
     const cardsHtml = campings.map(c => {
         const g = c.geometry ? c.geometry.coordinates : null;
         const lat = g ? g[1] : null;
         const lng = g ? g[0] : null;
-        const distM = calculateDistance(sLat, sLng, lat, lng);
         const name = c.properties ? (c.properties.name || 'Onbekende camping') : 'Onbekende camping';
         const city = c.properties ? (c.properties.city || '') : '';
         const safeName = btoa(unescape(encodeURIComponent(name)));
@@ -1414,7 +1505,6 @@ function renderFavoritesOverlayContent() {
             <div class="card-body">
                 <h3 class="camping-name-link" onclick="window.openFavoriteDetail('${c.id}'); return false;">${name}</h3>
                 <div class="card-location"><i class="fa-solid fa-map-pin"></i> ${city}</div>
-                <div class="card-distance"><i class="fa-solid fa-map-pin"></i> Afstand: ${(distM/1000).toFixed(1)} km</div>
             </div>
             <div class="camping-actions">
                 <a href="#" class="action-btn btn-kaart" onclick="window.openFavoriteMap(${lat},${lng}, '${c.id}'); return false;"><i class="fa-solid fa-map"></i> KAART</a>
@@ -1716,6 +1806,24 @@ window.handleDetailBack = function() {
 };
 
 
+// Toont een tijdelijke toast-melding (wordt na ~2.8s automatisch verwijderd).
+function showAppExitToast() {
+    let toast = document.getElementById('app-exit-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'app-exit-toast';
+        toast.className = 'app-exit-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = 'Nogmaals terug-drukken om de app te verlaten';
+    toast.classList.add('visible');
+    clearTimeout(showAppExitToast._timer);
+    showAppExitToast._timer = setTimeout(() => {
+        toast.classList.remove('visible');
+    }, 2800);
+}
+
+
 // Update onpopstate to handle the sheet animation on history changes
 window.onpopstate = (e) => {
     const detailOverlay = document.getElementById('detail-container');
@@ -1723,6 +1831,30 @@ window.onpopstate = (e) => {
     const backdrop = document.getElementById('svr-filter-backdrop');
     const splashScreen = document.getElementById('detail-splash');
     const filterOverlay = document.getElementById('svr-filter-overlay');
+
+    // ---- Android back-exit bevestiging (alleen mobiel + niet-geïnstalleerd) ----
+    // Een 'laatste' back-press (binnen de app niets meer om terug te keren,
+    // gemarkeerd via de __svrBase-entry) verlaat de app NIET meteen, maar toont
+    // eerst een toast. Een tweede back binnen 3s bevestigt het verlaten.
+    if (e.state && e.state.__svrBase === true && window.innerWidth < 768) {
+        const installed = typeof window.isAppInstalled === 'function' && window.isAppInstalled();
+        if (!installed) {
+            const now = Date.now();
+            if (exitConfirmArmed && (now - exitConfirmArmed) < 3000) {
+                // Bevestigd: naar de entry vóór de basis-entry navigeren = app verlaten
+                exitConfirmArmed = 0;
+                history.back();
+                return;
+            }
+            exitConfirmArmed = now;
+            showAppExitToast();
+            // Guard opnieuw pushen zodat een volgende back wéér deze branch raakt
+            history.pushState({ view: 'map' }, "", window.location.pathname);
+            setTimeout(() => { exitConfirmArmed = 0; }, 3000);
+            return;
+        }
+    }
+    // ---- Einde Android back-exit bevestiging ----
 
     if (e.state) {
         const isDesktopPop = window.innerWidth >= 768;
@@ -2047,7 +2179,7 @@ $searchInput.on('input', function() {
             // zichtbaar worden en ruim de bijbehorende history-entry op.
             if (window.innerWidth >= 768) {
                 window.closeRightPanel();
-                if (history.state && (history.state.view === 'detail' || history.state.view === 'filters')) {
+                if (history.state && (history.state.view === 'detail' || history.state.view === 'filters' || history.state.view === 'favorites')) {
                     history.back();
                 }
             }
@@ -2686,13 +2818,20 @@ function renderResults(objects, cLat, cLng) {
         // Match original Android app popup styling exactly
         // See: bestanden/outerHTML_marker_popup.txt
         const address = p.address ? `${p.address}, ${p.city}` : p.city;
-        const distDisplay = (obj.distM/1000).toFixed(1);
+        // Bereken afstand: bij normale zoekopdracht vanaf het zoekcentrum, in favorieten-context
+        // (suppressDistance) vanaf de GPS-positie van de gebruiker.
+        const distDisplay = window.suppressDistance && currentUserLatLng
+            ? (calculateDistance(currentUserLatLng.lat, currentUserLatLng.lng, lat, lng) / 1000).toFixed(1)
+            : (obj.distM / 1000).toFixed(1);
+        const distLine = window.suppressDistance && !currentUserLatLng
+            ? ''
+            : `<div style="font-size: 13px; color: #333; margin-top: 2px;"><i class="fa-solid fa-map-pin" style="color: #c0392b;"></i> Afstand: ${distDisplay} km</div>`;
 
         const popup = `<div style="min-width: 220px;">
             <div style="word-wrap: break-word; margin-top: -5px;">
                 <h5 onclick="window.showSVRDetailPage('${obj.id}', 'map')" style="margin: 0; padding: 0; font-family: 'Befalow', sans-serif; font-size: 25px; font-weight: normal; color: #008AD3; cursor: pointer;">${p.name}</h5>
                 <div style="font-size: 13px; color: #666; margin-top: 0px;">${address}</div>
-                <div style="font-size: 13px; color: #333; margin-top: 2px;"><i class="fa-solid fa-map-pin" style="color: #c0392b;"></i> Afstand: ${distDisplay} km</div>
+                ${distLine}
                 <div class="camping-actions" style="display: flex; margin: 8px -15px -15px -15px; border-top: 1px solid #eee;">
                     <a href="#" class="action-btn btn-route" style="flex: 1; text-align: center; padding: 6px 0; color: #c0392b; text-decoration: none; font-weight: bold; font-size: 14px; border-right: 1px solid #eee;" onclick="window.openNavHelper(${lat}, ${lng}, '${safeName}'); return false;"><i class="fa-solid fa-route"></i> ROUTE</a>
                     <a href="#" class="action-btn btn-info" style="flex: 1; text-align: center; padding: 6px 0; color: #008AD3; text-decoration: none; font-weight: bold; font-size: 14px;" onclick="window.showSVRDetailPage('${obj.id}', 'map'); return false;"><i class="fa-solid fa-circle-info"></i> INFO</a>
@@ -2707,7 +2846,7 @@ function renderResults(objects, cLat, cLng) {
             <div class="card-body">
                 <h3 class="camping-name-link" onclick="window.showSVRDetailPage('${obj.id}', 'list'); return false;">${p.name}</h3>
                 <div class="card-location"><i class="fa-solid fa-map-pin"></i> ${p.city}</div>
-                <div class="card-distance"><i class="fa-solid fa-map-pin"></i> Afstand: ${(obj.distM/1000).toFixed(1)} km</div>
+                ${window.suppressDistance && !currentUserLatLng ? '' : `<div class="card-distance"><i class="fa-solid fa-map-pin"></i> Afstand: ${distDisplay} km</div>`}
             </div>
             <div class="camping-actions">
                 <a href="#" class="action-btn btn-kaart" onclick="window.focusOnMarker(${lat},${lng}, '${obj.id}', map.getZoom()); return false;"><i class="fa-solid fa-map"></i> KAART</a>
@@ -2811,7 +2950,17 @@ async function initApp() {
 }
 
 window.initializeApp = function() {
-    history.replaceState({ view: 'map' }, "");
+    // Basis-history-entry die de oorsprong van de app vastlegt én fungeert als
+    // herkenbaar 'laatste punt' voor de Android-back-bevestiging.
+    history.replaceState({ view: 'map', __svrBase: true }, "");
+
+    // Niet-geïnstalleerde app: houd een guard-entry boven de basis-entry. Zo
+    // wordt een 'laatste' Android-back-press door popstate onderschept (toast +
+    // opnieuw pushen) i.p.v. de app direct te laten verlaten. Bij een
+    // geïnstalleerde PWA is dat niet nodig (back sluit naar de app-lijst).
+    if (typeof window.isAppInstalled === 'function' && !window.isAppInstalled()) {
+        history.pushState({ view: 'map' }, "", window.location.pathname);
+    }
 
     // Reset filters on startup
     window.currentFilters = [];
