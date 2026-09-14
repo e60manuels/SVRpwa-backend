@@ -98,8 +98,8 @@ SVRpwaB/
 
 | Aspect           | Waarde                              |
 | ---------------- | ----------------------------------- |
-| App-versie       | `window.SVR_PWA_VERSION` (`v1.6.7`) |
-| SW-cache         | `svr-pwa-b-v1.6.7`                  |
+| App-versie       | `window.SVR_PWA_VERSION` (`v1.6.8`) |
+| SW-cache         | `svr-pwa-b-v1.6.8`                  |
 | Kaart-tile-cache | `svr-pwa-b-tiles`                   |
 
 **Strategie:**
