@@ -1,4 +1,4 @@
-const CACHE_NAME = 'svr-pwa-b-v1.6.11';
+const CACHE_NAME = 'svr-pwa-b-v1.6.12';
 const MAP_CACHE_NAME = 'svr-pwa-b-tiles';
 const ASSETS_TO_CACHE = [
   './',
@@ -18,6 +18,7 @@ const ASSETS_TO_CACHE = [
   'https://code.jquery.com/jquery-3.6.0.min.js',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/regular.min.css',

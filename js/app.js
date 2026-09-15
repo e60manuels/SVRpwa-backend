@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.11"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.12"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -2193,9 +2193,13 @@ $searchInput.on('input', function() {
     $suggestionsList.empty();
     if (suggestions.length === 0) { $suggestionsList.hide(); return; }
     suggestions.forEach(suggestion => {
-        const icon = '📍';
-        const $li = $('<li class="suggestion-item"></li>')
-            .text(`${icon} ${suggestion.label}`);
+        const $li = $('<li class="suggestion-item"></li>');
+        if (suggestion.type === 'camping') {
+            $li.append($('<span class="suggestion-camp-icon"></span>'));
+            $li.append(document.createTextNode(' ' + suggestion.label));
+        } else {
+            $li.text(`📍 ${suggestion.label}`);
+        }
         $li.on('click', (e) => {
             e.stopPropagation();
             window._searchIntent = suggestion.type;
