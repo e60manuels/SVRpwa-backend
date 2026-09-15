@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.9"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.10"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -2753,6 +2753,43 @@ window.detailReserveringSubmit = function(email, campingName) {
     ].join('\n');
     window.open('mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body), '_self');
 };
+// Bouwt één camping-marker met dezelfde popup-opmaak als de zoekresultaten.
+// Herbruikt door renderResults en door de fallback in focusOnMarker, die markers
+// toevoegt wanneer een camping (nog) niet op de kaart staat.
+function buildCampingMarker(obj) {
+    const g = obj.geometry; if (!g || !g.coordinates) return null;
+    const lat = g.coordinates[1], lng = g.coordinates[0];
+    const p = obj.properties;
+    const safeName = btoa(unescape(encodeURIComponent(p.name)));
+    const marker = L.marker([lat, lng]);
+    marker.objId = obj.id; // Store ID for reliable lookup
+
+    const address = p.address ? `${p.address}, ${p.city}` : p.city;
+    // Bereken afstand: bij normale zoekopdracht vanaf het zoekcentrum, in favorieten-context
+    // (suppressDistance) vanaf de GPS-positie van de gebruiker.
+    const distDisplay = window.suppressDistance && currentUserLatLng
+        ? (calculateDistance(currentUserLatLng.lat, currentUserLatLng.lng, lat, lng) / 1000).toFixed(1)
+        : (obj.distM / 1000).toFixed(1);
+    const distLine = window.suppressDistance && !currentUserLatLng
+        ? ''
+        : `<div style="font-size: 13px; color: #333; margin-top: 2px;"><i class="fa-solid fa-map-pin" style="color: #c0392b;"></i> Afstand: ${distDisplay} km</div>`;
+
+    const popup = `<div style="min-width: 220px;">
+        <div style="word-wrap: break-word; margin-top: -5px;">
+            <h5 onclick="window.showSVRDetailPage('${obj.id}', 'map')" style="margin: 0; padding: 0; font-family: 'Befalow', sans-serif; font-size: 25px; font-weight: normal; color: #008AD3; cursor: pointer;">${p.name}</h5>
+            <div style="font-size: 13px; color: #666; margin-top: 0px;">${address}</div>
+            ${distLine}
+            <div class="camping-actions" style="display: flex; margin: 8px -15px -15px -15px; border-top: 1px solid #eee;">
+                <a href="#" class="action-btn btn-route" style="flex: 1; text-align: center; padding: 6px 0; color: #c0392b; text-decoration: none; font-weight: bold; font-size: 14px; border-right: 1px solid #eee;" onclick="window.openNavHelper(${lat}, ${lng}, '${safeName}'); return false;"><i class="fa-solid fa-route"></i> ROUTE</a>
+                <a href="#" class="action-btn btn-info" style="flex: 1; text-align: center; padding: 6px 0; color: #008AD3; text-decoration: none; font-weight: bold; font-size: 14px;" onclick="window.showSVRDetailPage('${obj.id}', 'map'); return false;"><i class="fa-solid fa-circle-info"></i> INFO</a>
+            </div>
+        </div>
+    </div>`;
+
+    marker.bindPopup(popup);
+    return marker;
+}
+
 window.focusOnMarker = function(lat, lng, objectId, targetZoom = 16) {
     const isDesktop = window.innerWidth >= 768;
     if (!isDesktop) {
@@ -2805,8 +2842,41 @@ window.focusOnMarker = function(lat, lng, objectId, targetZoom = 16) {
             openPopupAfterAnimation();
         }
     } else {
-        // Marker not found - just pan to coordinates
-        map.setView(targetLatLng, targetZoom);
+        // Marker niet op de kaart: de camping + dichtstbijzijnde buren als markers
+        // toevoegen (zonder de resultatenlijst te vervangen) zodat de marker-met-popup
+        // tóch getoond kan worden. Dit treedt o.a. op wanneer een gekozen favoriet
+        // buiten het huidige zoekvenster ligt — na een campingnaam-zoekopdracht staan
+        // er maar een handjevol markers op de kaart, na een plaatsnaam-zoekopdracht
+        // alle campings. Via Kaart/Info in de favorietenlijst wordt de popup nu ook
+        // in het eerste geval geopend.
+        const camping = (window.staticCampsites || []).find(o => o && o.id === objectId && o.geometry && o.geometry.coordinates);
+        if (camping) {
+            const neighbors = nearestCampingsAround(camping.geometry.coordinates[1], camping.geometry.coordinates[0], 10);
+            const added = [];
+            window.suppressDistance = true;
+            window.suppressSearchMarker = true;
+            neighbors.forEach(c => {
+                const m = buildCampingMarker(c);
+                if (!m) return;
+                if (c.id === objectId) {
+                    foundMarker = m;
+                    markerLayer = 'top10';
+                    top10Layer.addLayer(m);
+                } else {
+                    added.push(m);
+                }
+            });
+            window.suppressDistance = false;
+            window.suppressSearchMarker = false;
+            if (added.length) markerCluster.addLayers(added);
+        }
+        if (foundMarker && markerLayer === 'top10') {
+            map.setView(targetLatLng, targetZoom, { animate: true });
+            openPopupAfterAnimation();
+        } else {
+            // Marker not found - just pan to coordinates
+            map.setView(targetLatLng, targetZoom);
+        }
     }
 
     // Lock fitBounds for a bit longer to ensure stability
@@ -2830,35 +2900,14 @@ function renderResults(objects, cLat, cLng) {
             return;
         }
 
-        const lat = g.coordinates[1], lng = g.coordinates[0], safeName = btoa(unescape(encodeURIComponent(p.name)));
-        const marker = L.marker([lat, lng]);
-        marker.objId = obj.id; // Store ID for reliable lookup
-        
-        // Match original Android app popup styling exactly
-        // See: bestanden/outerHTML_marker_popup.txt
-        const address = p.address ? `${p.address}, ${p.city}` : p.city;
-        // Bereken afstand: bij normale zoekopdracht vanaf het zoekcentrum, in favorieten-context
-        // (suppressDistance) vanaf de GPS-positie van de gebruiker.
+        const lat = g.coordinates[1], lng = g.coordinates[0];
+        const safeName = btoa(unescape(encodeURIComponent(p.name)));
+        const marker = buildCampingMarker(obj);
+        // Afstand voor de kaart-tegel (de marker-popup berekent zijn eigen afstand
+        // in buildCampingMarker, net als voorheen dezelfde logica).
         const distDisplay = window.suppressDistance && currentUserLatLng
             ? (calculateDistance(currentUserLatLng.lat, currentUserLatLng.lng, lat, lng) / 1000).toFixed(1)
             : (obj.distM / 1000).toFixed(1);
-        const distLine = window.suppressDistance && !currentUserLatLng
-            ? ''
-            : `<div style="font-size: 13px; color: #333; margin-top: 2px;"><i class="fa-solid fa-map-pin" style="color: #c0392b;"></i> Afstand: ${distDisplay} km</div>`;
-
-        const popup = `<div style="min-width: 220px;">
-            <div style="word-wrap: break-word; margin-top: -5px;">
-                <h5 onclick="window.showSVRDetailPage('${obj.id}', 'map')" style="margin: 0; padding: 0; font-family: 'Befalow', sans-serif; font-size: 25px; font-weight: normal; color: #008AD3; cursor: pointer;">${p.name}</h5>
-                <div style="font-size: 13px; color: #666; margin-top: 0px;">${address}</div>
-                ${distLine}
-                <div class="camping-actions" style="display: flex; margin: 8px -15px -15px -15px; border-top: 1px solid #eee;">
-                    <a href="#" class="action-btn btn-route" style="flex: 1; text-align: center; padding: 6px 0; color: #c0392b; text-decoration: none; font-weight: bold; font-size: 14px; border-right: 1px solid #eee;" onclick="window.openNavHelper(${lat}, ${lng}, '${safeName}'); return false;"><i class="fa-solid fa-route"></i> ROUTE</a>
-                    <a href="#" class="action-btn btn-info" style="flex: 1; text-align: center; padding: 6px 0; color: #008AD3; text-decoration: none; font-weight: bold; font-size: 14px;" onclick="window.showSVRDetailPage('${obj.id}', 'map'); return false;"><i class="fa-solid fa-circle-info"></i> INFO</a>
-                </div>
-            </div>
-        </div>`;
-
-        marker.bindPopup(popup);
         if (index < 10) { top10Layer.addLayer(marker); bounds.extend([lat, lng]); } else markerCluster.addLayer(marker);
 
         const card = `<div class="camping-card">
