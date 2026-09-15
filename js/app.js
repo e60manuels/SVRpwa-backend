@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.10"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.11"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -1048,6 +1048,8 @@ window.hideFilterOverlay = function() {
         // Update BEIDE UI locaties bij handmatige verwijdering
         updateActiveFiltersUI(selected, 'both');
 
+        // Wis zoekveld: filteractie overschrijft eerdere zoekopdracht.
+        $searchInput.val(''); $('#searchResetBtn').hide();
         window.performSearch(true);
     };
 
@@ -1082,6 +1084,9 @@ window.hideFilterOverlay = function() {
         updateActiveFiltersUI(selectedItems, 'header');
 
         window.closeFilterOverlay();
+        // Wis zoekveld: filteractie overschrijft eerdere zoekopdracht (camping-
+        // of plaatsnaam) zodat een "schone filtering" plaatsvindt.
+        $searchInput.val(''); $('#searchResetBtn').hide();
         window.performSearch(true); 
     };
 
@@ -1110,6 +1115,8 @@ window.hideFilterOverlay = function() {
         }
 
         window.closeFilterOverlay();
+        // Wis zoekveld: filterwis overschrijft eerdere zoekopdracht.
+        $searchInput.val(''); $('#searchResetBtn').hide();
         window.performSearch(true); 
     };
 
@@ -2186,7 +2193,7 @@ $searchInput.on('input', function() {
     $suggestionsList.empty();
     if (suggestions.length === 0) { $suggestionsList.hide(); return; }
     suggestions.forEach(suggestion => {
-        const icon = suggestion.type === 'camping' ? '⛺' : '📍';
+        const icon = '📍';
         const $li = $('<li class="suggestion-item"></li>')
             .text(`${icon} ${suggestion.label}`);
         $li.on('click', (e) => {
@@ -2229,6 +2236,20 @@ window.performSearch = async function(forceAPI = false) {
     if (searchIntent === 'camping' && q) {
         const matches = window.findLocalCampingMatches(q);
         if (matches.length > 0) {
+            // Campingnaam-zoek: actieve filters wissen zodat de camping altijd
+            // getoond wordt, ongeacht welke filters er actief waren.
+            if (window.currentFilters && window.currentFilters.length > 0) {
+                window.currentFilters = [];
+                const fOverlay = document.getElementById('svr-filter-overlay');
+                if (fOverlay) fOverlay.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                const btn = document.getElementById('filterBtn');
+                if (btn) { btn.style.background = 'white'; btn.style.color = '#333'; }
+                const headerBar = document.getElementById('active-filters-bar');
+                if (headerBar) headerBar.innerHTML = '';
+                document.body.classList.remove('has-filters');
+                const svrHeader = document.querySelector('.svr-header');
+                if (svrHeader) svrHeader.classList.remove('has-filters');
+            }
             renderCampingResults(matches, { campingName: true });
             isSearching = false;
             return;
@@ -2252,6 +2273,20 @@ window.performSearch = async function(forceAPI = false) {
     if (!coords && q && searchIntent !== 'place') {
         const matches = window.findLocalCampingMatches(q);
         if (matches.length > 0) {
+            // Campingnaam-zoek (fallback): actieve filters wissen zodat de
+            // camping altijd getoond wordt.
+            if (window.currentFilters && window.currentFilters.length > 0) {
+                window.currentFilters = [];
+                const fOverlay = document.getElementById('svr-filter-overlay');
+                if (fOverlay) fOverlay.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                const btn = document.getElementById('filterBtn');
+                if (btn) { btn.style.background = 'white'; btn.style.color = '#333'; }
+                const headerBar = document.getElementById('active-filters-bar');
+                if (headerBar) headerBar.innerHTML = '';
+                document.body.classList.remove('has-filters');
+                const svrHeader = document.querySelector('.svr-header');
+                if (svrHeader) svrHeader.classList.remove('has-filters');
+            }
             renderCampingResults(matches, { campingName: true });
             isSearching = false;
             return;
