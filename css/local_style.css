@@ -610,7 +610,7 @@
    Kaart links — Lijst/Detail/Filter rechts
    ======================================== */
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) and (orientation: landscape) {
     /* Kleinere UI-elementen */
     .search-container { height: 36px; width: 350px; flex: none; padding: 0 8px; margin-right: 106px; }
     .search-container input { font-size: 14px; }
@@ -881,8 +881,8 @@
         display: none !important;
     }
 
-    /* Toggle-knop op desktop: verbergen en als scroll-to-top gebruiken */
-    @media (min-width: 768px) {
+/* Toggle-knop op desktop: verbergen en als scroll-to-top gebruiken */
+    @media (min-width: 1024px) and (orientation: landscape) {
         #toggleView {
             display: none;
         }
@@ -894,7 +894,7 @@
     /* Camping-cards: desktop optimalisatie */
     .camping-card { max-width: none; margin: 0 0 12px 0; }
 }
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (orientation: landscape) {
     .search-container { height: 32px; }
     .search-container input { font-size: 13px; }
     #searchIcon { font-size: 14px; }

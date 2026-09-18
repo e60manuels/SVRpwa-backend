@@ -1,9 +1,18 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.12"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.13"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
+
+// Tablet/desktop-detectie voor de two-view PWA:
+// - Rechtop (portrait) of smal scherm  => mobiele view (fullscreen, toggle).
+// - Liggend (landscape) EN breed >= 1024px => desktop view (kaart links, lijst rechts).
+// Een breedte van 1024px scheidt een 10"-tablet in landscape (>=1024px) van een
+// brede telefoon in landscape (max ~950px CSS), die dus de mobiele view houdt.
+function isDesktopView() {
+    return window.innerWidth >= 1024 && window.innerHeight < window.innerWidth;
+}
 
 // Normaliseer zoektekst: kleine letters, diakritiek weg, aanhalingstekens
 // genormaliseerd, meerdere spaties ingedikt.
@@ -448,8 +457,8 @@ function getCampingNameMatches(q) {
             border-left: 1px solid rgba(0,0,0,0.1);
         }
 
-        /* DESKTOP SPECIFIC (min-width: 768px) */
-        @media (min-width: 768px) {
+        /* DESKTOP SPECIFIC (min-width: 1024px && landscape) */
+        @media (min-width: 1024px) and (orientation: landscape) {
             #svr-filter-overlay, #svr-favorites-overlay { 
                 display: flex; flex-direction: column; background-color: #f0f0f0; 
                 border-radius: 0; transform: none !important; transition: none !important;
@@ -592,7 +601,7 @@ window.hideFilterOverlay = function() {
     if (window.parent !== window) {
         window.parent.postMessage({ type: 'svr-nav', panel: 'filter', open: false }, '*');
     }
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
     const filterEl = document.getElementById('svr-filter-overlay');
     const backdropEl = document.getElementById('svr-filter-backdrop');
 
@@ -671,7 +680,7 @@ window.hideFilterOverlay = function() {
     };
 
     window.toggle_filters = async function() {
-        const isDesktop = window.innerWidth >= 768;
+        const isDesktop = isDesktopView();
 
         if (window.parent !== window) {
             window.parent.postMessage({ type: 'svr-nav', panel: 'filter', open: true }, '*');
@@ -1145,7 +1154,7 @@ let userLocationMarker = null;
 let exitConfirmArmed = 0;
 
 // Add zoom control positioned at bottom right (desktop only)
-const isDesktop = window.innerWidth >= 768;
+const isDesktop = isDesktopView();
 if (isDesktop) {
     L.control.zoom({
         position: 'bottomright'
@@ -1361,7 +1370,7 @@ window.showFavorites = function(withHistory = true) {
     const favOverlay = document.getElementById('svr-favorites-overlay');
     const backdrop = document.getElementById('svr-filter-backdrop');
     if (!favOverlay) return;
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
 
     renderFavoritesOverlayContent();
 
@@ -1382,7 +1391,7 @@ window.hideFavoritesOverlay = function() {
     if (window.parent !== window) {
         window.parent.postMessage({ type: 'svr-nav', panel: 'favorites', open: false }, '*');
     }
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
     const favOverlay = document.getElementById('svr-favorites-overlay');
     const backdrop = document.getElementById('svr-filter-backdrop');
     if (!favOverlay) return;
@@ -1411,7 +1420,7 @@ window.hideFavoritesOverlay = function() {
 };
 
 window.closeFavoritesOverlay = function() {
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
     // Desktop: de KAART-knop pan-te de kaart naar een favoriet terwijl de
     // favorieten-popup open bleef. Bij sluiten herstellen we het laatste
     // zoekvenster zodat je teruggaat naar de laatst getoonde zoekopdracht.
@@ -1434,7 +1443,7 @@ window.closeFavoritesOverlay = function() {
 window.openFavoriteDetail = function(id) {
     window.hideFavoritesOverlay();
     const openDetail = () => window.showSVRDetailPage(id, 'list');
-    if (window.innerWidth >= 768) {
+    if (isDesktopView()) {
         openDetail();
     } else {
         // Mobiel: laat de favorites-sheet eerst wegzakken voordat de detail-sheet
@@ -1450,7 +1459,7 @@ window.openFavoriteDetail = function(id) {
 //   getoond en een map-history-entry komt bovenop de (behouden) favorites-entry,
 //   zodat Android-back terugkeert naar de favorietenlijst i.p.v. de app te verlaten.
 window.openFavoriteMap = function(lat, lng, id) {
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
     if (isDesktop) {
         window.favoriteMapPanned = true;
         // Herbind de bestaande marker-popup met GPS-afstand (i.p.v. zoekcentrum-afstand)
@@ -1545,7 +1554,7 @@ function renderFavoritesOverlayContent() {
 function applyState(state) {
     if (!state) return;
     
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
 
     // Only hide detail container if the new state is NOT a detail view
     // This prevents the hide/show flash when updating detail content
@@ -1624,7 +1633,7 @@ function applyState(state) {
 
 // --- SCROLL TO TOP LOGIC ---
 $('#list-container').on('scroll', function() {
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
     if (isListView || isDesktop) {
         if ($(this).scrollTop() > 300) {
             $('#scroll_top_btn').css('opacity', '1');
@@ -1656,7 +1665,7 @@ window.showSVRDetailPage = function(objectId, source = 'auto') {
     const detailSheet = detailOverlay.querySelector('.detail-sheet-content');
     const splashScreen = document.getElementById('detail-splash');
     const backdrop = document.getElementById('svr-filter-backdrop');
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
 
     // Sluit een geopende filter-overlay zodat de detailpagina zichtbaar wordt
     const filterOverlayEl = document.getElementById('svr-filter-overlay');
@@ -1793,7 +1802,7 @@ window.handleDetailBack = function() {
     const detailSheet = detailOverlay.querySelector('.detail-sheet-content');
     const backdrop = document.getElementById('svr-filter-backdrop');
     const splashScreen = document.getElementById('detail-splash');
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
 
     // Remove desktop panel context classes
     detailOverlay.classList.remove('detail-from-map', 'detail-from-list');
@@ -1862,7 +1871,7 @@ window.onpopstate = (e) => {
     // Een 'laatste' back-press (binnen de app niets meer om terug te keren,
     // gemarkeerd via de __svrBase-entry) verlaat de app NIET meteen, maar toont
     // eerst een toast. Een tweede back binnen 3s bevestigt het verlaten.
-    if (e.state && e.state.__svrBase === true && window.innerWidth < 768) {
+    if (e.state && e.state.__svrBase === true && !isDesktopView()) {
         const installed = typeof window.isAppInstalled === 'function' && window.isAppInstalled();
         if (!installed) {
             const now = Date.now();
@@ -1883,7 +1892,7 @@ window.onpopstate = (e) => {
     // ---- Einde Android back-exit bevestiging ----
 
     if (e.state) {
-        const isDesktopPop = window.innerWidth >= 768;
+        const isDesktopPop = isDesktopView();
         if (isDesktopPop) {
             // Op desktop: herstel body-class en sluit panelen indien nodig
             if (!e.state || (e.state.view !== 'detail' && e.state.view !== 'filters' && e.state.view !== 'favorites')) {
@@ -2015,7 +2024,7 @@ window.onpopstate = (e) => {
 // - Desktop: scroll-to-top voor lijst (wordt zichtbaar bij scrollen)
 // - Mobile: wissel tussen kaart en lijst
 $('#toggleView').on('click', () => {
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
 
     if (isDesktop) {
         // Desktop: scroll naar boven
@@ -2054,7 +2063,7 @@ function setDesktopViewMode(mode) {
  * @param {'detail'|'filter'} type
  */
 function openRightPanel(type) {
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
     if (!isDesktop) return; // Mobile heeft eigen logica
 
     const detailEl = document.getElementById('detail-container');
@@ -2107,7 +2116,7 @@ function openRightPanel(type) {
  * Sluit het actieve rechter paneel en toont de lijst weer.
  */
 function closeRightPanel() {
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
     if (!isDesktop) return;
 
     const detailEl = document.getElementById('detail-container');
@@ -2142,7 +2151,7 @@ function closeRightPanel() {
 window.closeRightPanel = closeRightPanel;
 
 // Initialiseer desktop layout
-if (window.innerWidth >= 768) {
+if (isDesktopView()) {
     document.body.classList.add('split-mode');
     // Forceer schone lei voor panelen
     closeRightPanel();
@@ -2152,21 +2161,60 @@ if (window.innerWidth >= 768) {
     $('#locateBtn').show();
 }
 
-let resizeTimeout;
-window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
+// Wissel bij het draaien van een tablet (rechtop <-> liggend) automatisch
+// tussen de mobiele en de desktop-layout.
+let lastDesktopMode = isDesktopView();
+function applyViewportMode() {
+    const nowDesktop = isDesktopView();
+    if (nowDesktop === lastDesktopMode) return;
+    lastDesktopMode = nowDesktop;
+
+    if (nowDesktop) {
+        // Mobiel -> desktop (tablet liggend): split-layout activeren.
+        document.body.classList.add('split-mode');
+        document.body.classList.remove('map-only-mode', 'list-only-mode');
+        // Mobiele applyState heeft containers mogelijk inline verborgen; op
+        // desktop zijn beide panelen tegelijk zichtbaar.
+        $('#map-container').show();
+        $('#list-container').show();
+        closeRightPanel();
+    } else {
+        // Desktop -> mobiel (tablet rechtop): panelen opruimen en terug naar map-view.
+        document.body.classList.remove('split-mode', 'map-only-mode', 'list-only-mode', 'panel-open');
+        ['detail-container', 'svr-filter-overlay', 'svr-favorites-overlay'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.style.display = ''; el.classList.remove('open'); }
+        });
+        const backdrop = document.getElementById('svr-filter-backdrop');
+        if (backdrop) { backdrop.style.display = 'none'; backdrop.classList.remove('open'); }
+        try { history.replaceState({ view: 'map' }, "", window.location.pathname); } catch (e) {}
+        applyState({ view: 'map' });
+    }
+
+    setTimeout(() => {
         if (map && typeof map.invalidateSize === 'function') {
             map.invalidateSize();
         }
+    }, 200);
+}
 
-        const isDesktop = window.innerWidth >= 768;
-        if (isDesktop && !document.body.classList.contains('split-mode')) {
-            document.body.classList.add('split-mode');
-            document.body.classList.remove('map-only-mode', 'list-only-mode');
+let resizeTimeout;
+const handleViewportChange = () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        applyViewportMode();
+        if (map && typeof map.invalidateSize === 'function') {
+            map.invalidateSize();
         }
     }, 100);
-});
+};
+window.addEventListener('resize', handleViewportChange);
+const orientationQuery = window.matchMedia('(orientation: landscape)');
+if (typeof orientationQuery.addEventListener === 'function') {
+    orientationQuery.addEventListener('change', handleViewportChange);
+} else if (typeof orientationQuery.addListener === 'function') {
+    orientationQuery.addListener(handleViewportChange);
+}
 const $searchInput = $('#searchInput'); const $suggestionsList = $('#suggestionsList');
 
 // Clear search input on click if it has a value
@@ -2207,7 +2255,7 @@ $searchInput.on('input', function() {
             $suggestionsList.hide();
             // Desktop: sluit een open detail-/filterpaneel zodat de zoekresultaten
             // zichtbaar worden en ruim de bijbehorende history-entry op.
-            if (window.innerWidth >= 768) {
+            if (isDesktopView()) {
                 window.closeRightPanel();
                 if (history.state && (history.state.view === 'detail' || history.state.view === 'filters' || history.state.view === 'favorites')) {
                     history.back();
@@ -2830,7 +2878,7 @@ function buildCampingMarker(obj) {
 }
 
 window.focusOnMarker = function(lat, lng, objectId, targetZoom = 16) {
-    const isDesktop = window.innerWidth >= 768;
+    const isDesktop = isDesktopView();
     if (!isDesktop) {
         applyState({ view: 'map' });
     }
