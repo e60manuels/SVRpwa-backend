@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.13"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.14"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -325,8 +325,11 @@ function getCampingNameMatches(q) {
         #svr-filter-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1400; display: none; opacity: 0; transition: opacity 0.3s ease; }
         #svr-filter-backdrop.open { display: block; opacity: 1; }
         
-        /* MOBILE STYLES (default) */
-        @media (max-width: 767px) {
+        /* MOBILE STYLES (default)
+           Dek alle niet-desktop viewports: <=1023px (o.a. 768-1023px tablets die
+           vóór de two-view-breakpoint-wijziging desktop waren) én rechtop
+           (portrait, ook >=1024px). */
+        @media (max-width: 1023px), (orientation: portrait) {
             #svr-filter-overlay, #svr-favorites-overlay {
                 position: fixed; bottom: 0; left: 0; width: 100%; height: 90vh;
                 background-color: #f0f0f0; z-index: 9995; display: flex; flex-direction: column;

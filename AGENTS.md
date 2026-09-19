@@ -47,6 +47,9 @@ De versie staat op **meerdere plekken** en moet overal gelijk omhoog:
 | `js/pwa_install.js` | `const APP_VERSION = "1.6.x"` |
 | `sw.js` | `const CACHE_NAME = 'svr-pwa-b-v1.6.x'` |
 | `index.html` | `?v=1.6.x` op `local_style.css`, `custom_styles.css`, `config.js`, `app.js`, `pwa_install.js` |
+| `version.json` | `{ "version": "1.6.x" }` (versiepobe, zie v1.6.9) |
+
+- Let op: `version.json` moet bewust **niet** in de SW-precache; hij wordt bij opstart met unieke querystring opgehaald om de CDN-cache te omzeilen.
 
 - Kaart-tile-cache: `svr-pwa-b-tiles` (blijft ongewijzigd)
 - Cache-strategie: app-shell network-first met cache-fallback; statische assets cache-first met `ignoreSearch`; API network-only
@@ -104,7 +107,7 @@ Gebruik dus **`obj.properties.name`**, **`obj.properties.city`**, **`obj.geometr
 
 ## Known Issues / Aandachtspunten
 
-1. **Service-worker-updateroute:** sinds v1.6.5 registreert `index.html` met `{ updateViaCache: 'none' }` + éénmalige `controllerchange`-reload, en gebruikt de app-shell fetch `{ cache: 'no-cache' }`. Daarmee wordt een nieuwe SW bij de eerstvolgende reload direct opgepikt i.p.v. pas na de `max-age=600` van GitHub Pages/Fastly.
+1. **Service-worker-updateroute:** sinds v1.6.5 registreert `index.html` met `{ updateViaCache: 'none' }` + éénmalige `controllerchange`-reload, en gebruikt de app-shell fetch `{ cache: 'no-cache' }`. Daarmee wordt een nieuwe SW bij de eerstvolgende reload direct opgepikt i.p.v. pas na de `max-age=600` van GitHub Pages/Fastly. Sinds **v1.6.9** vangt daarnaast een `version.json`-pobe bij opstart de gevallen af waarin de CDN-edge nog byte-identiek oude `sw.js` uitserveert (éénmalige automatische reload bij mismatch).
 2. **jQuery** wordt nog deels in `app.js` gebruikt; verdere modernisering in overleg.
 3. **Install-prompt:** `beforeinstallprompt` vuurt eenmalig per origin; daarna handmatige fallback via het ⓘ-helpicoon.
 4. **CORS:** de app-origin verschilt van de backend. Als de detailpagina na een deploy niet laadt, controleer de CORS-headers van de Worker.
@@ -112,6 +115,12 @@ Gebruik dus **`obj.properties.name`**, **`obj.properties.city`**, **`obj.geometr
 
 ---
 
-## Geport uit de hoofd-PWA (v1.6.4)
+## Geport uit de hoofd-PWA (v1.6.4 + v1.6.9)
 
 In v1.6.4 zijn vanuit `SVRpwa/` geport: favorieten (opslag, hartje, overlay, wis-knop, menu-item), campingnaam-zoek (plaats-eerst + naamsuggesties, min. 3 tekens), `#searchResetBtn`, single-camping zoom-fix en de bijbehorende CSS/z-index-aanpassingen. Zie commit `156f347`.
+
+In **v1.6.9** is de `version.json`-pobe geport (commit `9b09028`): bij opstart wordt de serverversie vergeleken met `window.SVR_PWA_VERSION`; bij mismatch → toast + éénmalige automatische reload, onafhankelijk van de SW-update-timing en de Fastly-CDN-edge.
+
+In **v1.6.14** (geport uit hoofd-PWA v0.2.89) zijn de tablet-layoutfixes overgenomen (commit `402c9a8`):
+- `manifest.json`: `"orientation": "portrait"` verwijderd — geïnstalleerde PWA draait nu vrij mee, zodat tablets liggend de desktop 2-pane-view krijgen (telefoons behouden de portrait-UX via `#portrait-lock`).
+- `js/app.js`: mobiele overlay-media-query (`#svr-filter-overlay`/`#svr-favorites-overlay`) verruimd van `max-width: 767px` naar `@media (max-width: 1023px), (orientation: portrait)` — geen unstyled gat meer op 768–1023px (bv. 1280×800-tablet in portrait).
