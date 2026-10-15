@@ -7,7 +7,7 @@ Dit bestand is de werkcontext voor de AI-assistent (opencode) in deze repo. Lees
 **SVRpwaB** is de **snellere variant** van de SVR-campings PWA. Zelfde functionaliteit als de hoofd-PWA, maar met een dedicated Cloudflare-Worker backend (`SVRpwa-backend`) i.p.v. de svr.nl-schraapachterkant. Zoeken, filteren en detailpagina's laden daardoor merkbaar sneller.
 
 **Belangrijk onderscheid met `SVRpwa/`:**
-- **Data komt live uit de API** (`GET /api/objects`, `GET /api/objects/{objectId}`, `GET /api/filter-data`) — er is **géén** `data/campings.json`.
+- **Data komt live uit de API** (`GET /api/map-objects` voor zoeken/filteren, `GET /api/objects/{objectId}` voor details, `GET /api/filter-data` voor de filteropties) — er is **géén** `data/campings.json`. Juist daardoor duurt elke zoekopdracht een netwerkronde; code die van de volgorde tussen kaart-fit en overlay-close afhangt moet daarom expliciet op `window.lastMapBounds` nalopen (zie v1.6.16).
 - **Eigen versiereeks** (`1.6.x`), losgekoppeld van de hoofd-app (`0.2.x`).
 - **Andere cache-prefix** (`svr-pwa-b` i.p.v. `svr-pwa-a`).
 
@@ -112,6 +112,7 @@ Gebruik dus **`obj.properties.name`**, **`obj.properties.city`**, **`obj.geometr
 3. **Install-prompt:** `beforeinstallprompt` vuurt eenmalig per origin; daarna handmatige fallback via het ⓘ-helpicoon.
 4. **CORS:** de app-origin verschilt van de backend. Als de detailpagina na een deploy niet laadt, controleer de CORS-headers van de Worker.
 5. **Offline:** zoeken/filteren/detail vereisen live API-toegang; alleen de UI toont een nette "geen internetverbinding"-melding (bewuste keuze).
+6. **Kaart-fit vs. overlay-close:** `closeFilterOverlay()` sluit via `history.back()`, dus `applyState('map')` en de `renderResults`-fit lopen door elkaar. Omdat de data live bij de Worker vandaan komt (honderden ms) i.p.v. uit een lokaal JSON-bestand, is de volgorde niet gegarandeerd — vanaf **v1.6.16** slaat `applyState` de refit over tijdens een lopende zoekopdracht en pakt `performSearch` na `invalidateSize()` altijd de nieuwste `window.lastMapBounds`. SVP hier niet opnieuw een losse `fitBounds` in de filterhandlers zetten.
 
 ---
 
@@ -124,3 +125,10 @@ In **v1.6.9** is de `version.json`-pobe geport (commit `9b09028`): bij opstart w
 In **v1.6.14** (geport uit hoofd-PWA v0.2.89) zijn de tablet-layoutfixes overgenomen (commit `402c9a8`):
 - `manifest.json`: `"orientation": "portrait"` verwijderd — geïnstalleerde PWA draait nu vrij mee, zodat tablets liggend de desktop 2-pane-view krijgen (telefoons behouden de portrait-UX via `#portrait-lock`).
 - `js/app.js`: mobiele overlay-media-query (`#svr-filter-overlay`/`#svr-favorites-overlay`) verruimd van `max-width: 767px` naar `@media (max-width: 1023px), (orientation: portrait)` — geen unstyled gat meer op 768–1023px (bv. 1280×800-tablet in portrait).
+
+---
+
+## Eigen wijzigingen t.o.v. de hoofd-PWA
+
+- **v1.6.15 — landfilter zonder radius:** `fetchCampingObjects` laat `radius` weg zodra een landfilter actief is en de Worker slaat de cirkel/bounding-box over bij `country`. Reden: het filter gold anders "land ∩ 500 km-cirkel rond het zoekpunt", waardoor bv. vanuit Vaison-la-Romain vrijwel heel Zuid-Duitsland en België wegvielen. De Worker (`svr-backend`) resolveert landnamen daarnaast via ISO-codes en buitenlandse schrijfwijzen (`BE`, `DE`, `Belgien`, `Deutschland`) naar de canonieke `country_full`.
+- **v1.6.16 — deterministische kaart-fit:** zie Known Issues punt 6.

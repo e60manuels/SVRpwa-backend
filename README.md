@@ -59,9 +59,15 @@ Deploy gebeurt automatisch via GitHub Pages zodra er naar `main` wordt gepusht.
 
 | Endpoint                        | Doel                                    |
 | ------------------------------- | --------------------------------------- |
-| `GET /api/objects`              | Campings ophalen (met zoek/filterparams)|
+| `GET /api/map-objects`          | Zoeken en filteren (alle objects in één keer, `lat`/`lng`/`radius`/`country`/`facilities`/`tarcat_laag`/`tarcat_hoog`) |
+| `GET /api/objects`              | Campings ophalen (gepagineerd; alleen gebruikt door de oude `/campings`-pagina) |
 | `GET /api/objects/{objectId}`   | Detailgegevens van één camping          |
 | `GET /api/filter-data`          | Filteropties en categorieën             |
+
+**Landfilter:** met een landfilter (`country`) geldt het hele land — de
+radius-cirkel rond het zoekpunt wordt dan bewust overgeslagen, zodat het land
+niet van de huidige locatie afhangt (v1.6.15). De backend accepteert ook
+ISO-codes en buitenlandse schrijfwijzen (`BE`, `DE`, `Belgien`, `Deutschland`).
 
 ---
 
@@ -83,7 +89,7 @@ SVRpwaB/
 │
 ├── js/
 │   ├── config.js           # Configuratie (API-base, app-versie)
-│   ├── app.js              # Hoofdlogica (~2400 regels)
+│   ├── app.js              # Hoofdlogica (~3200 regels)
 │   ├── pwa_install.js      # Install-bannerlogica
 │   └── leaflet.markercluster.js  # Clustering-plugin
 │
@@ -98,8 +104,8 @@ SVRpwaB/
 
 | Aspect           | Waarde                              |
 | ---------------- | ----------------------------------- |
-| App-versie       | `window.SVR_PWA_VERSION` (`v1.6.8`) |
-| SW-cache         | `svr-pwa-b-v1.6.8`                  |
+| App-versie       | `window.SVR_PWA_VERSION` (`v1.6.16`) |
+| SW-cache         | `svr-pwa-b-v1.6.16`                  |
 | Kaart-tile-cache | `svr-pwa-b-tiles`                   |
 
 **Strategie:**
