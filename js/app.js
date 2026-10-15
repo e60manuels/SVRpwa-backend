@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.15"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.16"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -1604,7 +1604,10 @@ function applyState(state) {
                 $('#toggleView i').attr('class', 'fas fa-list');
                 setTimeout(() => {
                     map.invalidateSize();
-                    if (window.lastMapBounds) {
+                    // Niet nalopen tijdens een lopende zoekopdracht: die fit zelf
+                    // op de verse resultaten (anders wint een stale fit van de
+                    // filterschijl die net gesloten is via history.back()).
+                    if (window.lastMapBounds && !isSearching) {
                         map.fitBounds(window.lastMapBounds, { padding: [50, 50] });
                     }
                 }, 100);
@@ -2390,7 +2393,15 @@ window.performSearch = async function(forceAPI = false) {
         logDebug("Zoekfout: " + e.message);
     } finally {
         isSearching = false;
-        setTimeout(() => map.invalidateSize(), 500);
+        // Na het sluiten van de filterschijl (history.back() -> applyState) en het
+        // corrigeren van de mapgrootte altijd één keer de kaart op de nieuwste
+        // resultaten zetten, ook als een eerdere fit met verouderde grenzen kwam.
+        setTimeout(() => {
+            map.invalidateSize();
+            if (!isListView && window.lastMapBounds) {
+                map.fitBounds(window.lastMapBounds, { padding: [50, 50] });
+            }
+        }, 500);
     }
 }
 
