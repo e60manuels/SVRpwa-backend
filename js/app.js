@@ -1,6 +1,6 @@
 // VERSION COUNTER - UPDATE THIS WITH EACH COMMIT FOR VISIBILITY
 // VERSION COUNTER - geef de juiste versie door (config.js overschrijft dit later)
-window.SVR_PWA_VERSION = "1.6.14"; // Increment this number with each commit
+window.SVR_PWA_VERSION = "1.6.15"; // Increment this number with each commit
 
 // In-memory cache voor detail-pagina's (voorkomt herhaalde cross-origin fetch)
 window._detailCache = {};
@@ -103,6 +103,9 @@ function getCampingNameMatches(q) {
         // Bouw de API URL op basis van geo/search/filters cookies
         const params = [];
 
+        // Filters: guids in currentFilters vertalen naar API params
+        const p = window.filterParamsFromGuids ? window.filterParamsFromGuids(window.currentFilters || []) : { country: null, facilities: [], tarcatLaag: [], tarcatHoog: [] };
+
         // Bepaalde het zoekcentrum: expliciet meegegeven centrum heeft voorrang,
         // anders de geo_ cookie (zoals in de statische frontend), anders Nederland.
         let useLat = sLat, useLng = sLng, useRadius = 500;
@@ -119,7 +122,11 @@ function getCampingNameMatches(q) {
         }
         if (typeof useLat !== 'number' || typeof useLng !== 'number') { useLat = 52.1326; useLng = 5.2913; }
 
-        params.push('lat=' + useLat, 'lng=' + useLng, 'radius=' + useRadius);
+        params.push('lat=' + useLat, 'lng=' + useLng);
+        // Met een landfilter geldt het hele land. Een radius-cirkel rond het
+        // zoekpunt zou campings van buiten dat land eruit filteren (vanuit
+        // Vaison-la-Romain bijvoorbeeld vrijwel heel Zuid-Duitsland).
+        if (!p.country) params.push('radius=' + useRadius);
 
         const searchFree = getCookie('search_free');
         if (searchFree) {
@@ -129,8 +136,6 @@ function getCampingNameMatches(q) {
             } catch (e) {}
         }
 
-        // Filters: guids in currentFilters vertalen naar API params
-        const p = window.filterParamsFromGuids ? window.filterParamsFromGuids(window.currentFilters || []) : { country: null, facilities: [], tarcatLaag: [], tarcatHoog: [] };
         if (p.country) params.push('country=' + encodeURIComponent(p.country));
         if (p.facilities && p.facilities.length > 0) params.push('facilities=' + encodeURIComponent(p.facilities.join(',')));
         if (p.tarcatLaag && p.tarcatLaag.length > 0) params.push('tarcat_laag=' + encodeURIComponent(p.tarcatLaag.join(',')));
